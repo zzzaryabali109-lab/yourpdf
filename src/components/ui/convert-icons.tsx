@@ -61,10 +61,10 @@ export function JpgToPdfImageIcon({ className = 'w-4 h-4 shrink-0 object-contain
   );
 }
 
-export function JpgResultPdfImageIcon({ className = 'w-4 h-4 shrink-0 object-contain' }: { className?: string }) {
+export function PdfDocumentImageIcon({ className = 'w-4 h-4 shrink-0 object-contain' }: { className?: string }) {
   return (
     <Image
-      src="/jpg-result-pdf-icon.png"
+      src="/pdf-document-icon.png"
       alt=""
       width={1254}
       height={1254}

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import Button from "@/components/arc/button/button";
 import { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
@@ -8,6 +9,7 @@ import { Check, Copy, ExternalLink, RotateCcw } from "lucide-react";
 
 export interface ShareModalViewProps {
   filename: string;
+  fileIcon?: ReactNode;
   fileSize?: number;
   downloadHref: string;
   onBackToDownload?: () => void;
@@ -25,6 +27,7 @@ type ShareResult = {
 
 export function ShareModalView({
   filename,
+  fileIcon,
   fileSize,
   downloadHref,
   onBackToDownload,
@@ -158,7 +161,7 @@ export function ShareModalView({
         <div className="space-y-4">
           {/* File info card with Real File Badge */}
           <div className="p-3.5 rounded-xl border border-border/80 bg-card flex items-center gap-3">
-            <RealFileBadge filename={shareResult.filename || filename} className="size-11 shrink-0" />
+            {fileIcon ?? <RealFileBadge filename={shareResult.filename || filename} className="size-11 shrink-0" />}
             <div className="min-w-0 flex-1">
               <p
                 className="text-sm font-bold truncate text-foreground"

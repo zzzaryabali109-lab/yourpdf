@@ -9,7 +9,7 @@ import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dro
 import { SiteHeader } from "@/components/site-header";
 import {
   ExcelToPdfDropzoneIcon,
-  PdfFileBadgeIcon,
+  PdfDocumentImageIcon,
 } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Pencil, Share2 } from "lucide-react";
 import { ShareModalView } from "@/components/ui/share-modal-view";
@@ -217,6 +217,7 @@ export default function ExcelToPdfPage() {
               return (
                 <ShareModalView
                   filename={finalDownloadName}
+                  fileIcon={<PdfDocumentImageIcon className="size-11 shrink-0 object-contain" />}
                   fileSize={conversionResult.outputSize}
                   downloadHref={downloadHref}
                   onBackToDownload={() => setDialogView("result")}
@@ -231,7 +232,7 @@ export default function ExcelToPdfPage() {
                 {/* File details card */}
                 <div className="p-4 rounded-xl border border-border bg-card/60 space-y-3.5">
                   <div className="flex items-center gap-3">
-                    <PdfFileBadgeIcon className="size-11" />
+                    <PdfDocumentImageIcon className="size-11 object-contain" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate text-foreground" title={finalDownloadName}>
                         {finalDownloadName}
