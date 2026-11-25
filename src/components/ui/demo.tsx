@@ -22,7 +22,7 @@ import {
   PdfToPowerpointIcon,
   PdfToExcelIcon,
   PdfToPdfAIcon,
-  MergePdfIcon,
+  MergePdfImageIcon,
   SplitPdfIcon,
   OcrPdfIcon,
   UnlockPdfIcon,
@@ -136,7 +136,7 @@ export function NavigationMenuDemo() {
               <ListItem
                 href="/merge-pdf"
                 title="Merge PDF"
-                icon={<MergePdfIcon className="size-4 shrink-0" />}
+                icon={<MergePdfImageIcon className="size-5 shrink-0 object-contain" />}
               >
                 Combine multiple PDF files into one unified document with ease.
               </ListItem>

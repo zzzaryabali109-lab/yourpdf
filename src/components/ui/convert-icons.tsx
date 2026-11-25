@@ -1,4 +1,17 @@
 import * as React from 'react';
+import Image from 'next/image';
+
+export function MergePdfImageIcon({ className = 'w-4 h-4 shrink-0' }: { className?: string }) {
+  return (
+    <Image
+      src="/merge-pdf-icon.png"
+      alt=""
+      width={1254}
+      height={1254}
+      className={className}
+    />
+  );
+}
 
 export function JpgToPdfIcon({ className = 'w-5 h-5 shrink-0' }: { className?: string }) {
   return (

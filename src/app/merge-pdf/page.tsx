@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { MergeDropzoneIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
+import { MergePdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Layers, Pencil } from "lucide-react";
 import styles from "../home.module.css";
 
@@ -116,7 +116,7 @@ export default function MergePdfPage() {
             multiple={true}
             maxFiles={20}
             maxSize={MAX_PDF_SIZE}
-            icon={<MergeDropzoneIcon className="w-16 h-16 sm:w-20 sm:h-20" />}
+            icon={<MergePdfImageIcon className="w-16 h-16 sm:w-20 sm:h-20 object-contain" />}
             label="Drop your PDF files here to merge"
             description="or click to browse multiple files from your device"
             note="2 or more PDFs · Up to 100 MB each"
