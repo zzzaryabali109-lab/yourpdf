@@ -15,7 +15,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { OcrDropzoneIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
+import { OcrPdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
 import styles from "../home.module.css";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
@@ -262,7 +262,7 @@ export default function OcrPdfPage() {
             multiple={false}
             maxFiles={1}
             maxSize={MAX_PDF_SIZE}
-            icon={<OcrDropzoneIcon className="w-16 h-16 sm:w-20 sm:h-20" />}
+            icon={<OcrPdfImageIcon className="w-16 h-16 object-contain sm:w-20 sm:h-20" />}
             label="Drop your scanned PDF here for OCR"
             description="or click to browse files from your device"
             note="PDF only · Up to 100 MB"

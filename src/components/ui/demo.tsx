@@ -24,7 +24,7 @@ import {
   PdfToPdfAIcon,
   MergePdfImageIcon,
   SplitPdfImageIcon,
-  OcrPdfIcon,
+  OcrPdfImageIcon,
   UnlockPdfIcon,
   ProtectPdfIcon,
   ComparePdfIcon,
@@ -150,7 +150,7 @@ export function NavigationMenuDemo() {
               <ListItem
                 href="/ocr-pdf"
                 title="OCR PDF"
-                icon={<OcrPdfIcon className="size-4 shrink-0" />}
+                icon={<OcrPdfImageIcon className="size-5 shrink-0 object-contain" />}
               >
                 Convert scanned PDFs into searchable and selectable text documents.
               </ListItem>
