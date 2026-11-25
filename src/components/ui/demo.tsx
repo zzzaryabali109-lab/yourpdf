@@ -12,7 +12,7 @@ import {
   navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
 import {
-  JpgToPdfIcon,
+  JpgToPdfImageIcon,
   WordToPdfIcon,
   PowerpointToPdfIcon,
   ExcelToPdfIcon,
@@ -35,7 +35,7 @@ const convertToPdfItems = [
   {
     title: 'JPG to PDF',
     href: '/jpg-to-pdf',
-    icon: <JpgToPdfIcon />,
+    icon: <JpgToPdfImageIcon className="size-5 shrink-0 object-contain" />,
   },
   {
     title: 'WORD to PDF',

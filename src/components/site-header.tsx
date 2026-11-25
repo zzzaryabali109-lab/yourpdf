@@ -18,7 +18,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import {
-  JpgToPdfIcon,
+  JpgToPdfImageIcon,
   WordToPdfIcon,
   PowerpointToPdfIcon,
   ExcelToPdfIcon,
@@ -55,7 +55,7 @@ const mobileSections: MobileDropdownSection[] = [
     title: "Convert to PDF",
     icon: <FolderDown className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />,
     items: [
-      { title: "JPG to PDF", href: "/jpg-to-pdf", icon: <JpgToPdfIcon className="size-4 shrink-0" /> },
+      { title: "JPG to PDF", href: "/jpg-to-pdf", icon: <JpgToPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "WORD to PDF", href: "/word-to-pdf", icon: <WordToPdfIcon className="size-4 shrink-0" /> },
       { title: "POWERPOINT to PDF", href: "/powerpoint-to-pdf", icon: <PowerpointToPdfIcon className="size-4 shrink-0" /> },
       { title: "EXCEL to PDF", href: "/excel-to-pdf", icon: <ExcelToPdfIcon className="size-4 shrink-0" /> },

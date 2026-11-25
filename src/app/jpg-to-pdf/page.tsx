@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { JpgToPdfDropzoneIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
+import { JpgToPdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Layers, Pencil, X, Share2, Copy, Check, ExternalLink } from "lucide-react";
 import styles from "../home.module.css";
 
@@ -230,7 +230,7 @@ export default function JpgToPdfPage() {
             multiple={true}
             maxFiles={50}
             maxSize={MAX_IMAGE_SIZE}
-            icon={<JpgToPdfDropzoneIcon className="w-20 h-20 sm:w-28 sm:h-28" />}
+            icon={<JpgToPdfImageIcon className="w-20 h-20 object-contain sm:w-28 sm:h-28" />}
             label="Drop your JPG or image files here"
             description="or click to browse multiple images from your device"
             note="JPG, JPEG, PNG, WebP · Up to 50 images · 100 MB each"
