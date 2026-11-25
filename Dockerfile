@@ -20,6 +20,8 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV HOME=/home/nextjs
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PYTHON_BIN=/opt/clearpdf-python/bin/python
+ENV PATH="/opt/clearpdf-python/bin:${PATH}"
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer-nogui \
@@ -29,10 +31,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation \
     fonts-crosextra-carlito \
     fonts-crosextra-caladea \
-    python-is-python3 \
-    python3-pypdf \
+    python3-venv \
     python3-openpyxl \
   && rm -rf /var/lib/apt/lists/* \
+  && python3 -m venv --system-site-packages /opt/clearpdf-python \
+  && /opt/clearpdf-python/bin/python -m pip install --no-cache-dir "pypdf[crypto]==7.1.1" \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs --create-home --home-dir /home/nextjs nextjs \
   && soffice --headless --version

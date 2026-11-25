@@ -39,7 +39,9 @@ def protect_pdf(
         writer.append(reader)
 
         # Build permissions flags
-        perms = UserAccessPermissions.all()
+        # Permit all operations by default while leaving the two reserved bits clear.
+        # Using the mask directly also works with older pypdf releases that lack all().
+        perms = UserAccessPermissions(0xFFFFFFFC)
         if not allow_printing:
             perms &= ~UserAccessPermissions.PRINT
             perms &= ~UserAccessPermissions.PRINT_TO_REPRESENTATION
