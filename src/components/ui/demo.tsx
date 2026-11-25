@@ -28,7 +28,7 @@ import {
   UnlockPdfIcon,
   ProtectPdfIcon,
   ComparePdfIcon,
-  AnimatedCompressPdf,
+  CompressPdfImageIcon,
 } from '@/components/ui/convert-icons';
 
 const convertToPdfItems = [
@@ -125,7 +125,7 @@ export function NavigationMenuDemo() {
                     href="/compress-pdf"
                     prefetch={true}
                   >
-                    <AnimatedCompressPdf className="h-24 w-full rounded-md mb-2" />
+                    <CompressPdfImageIcon className="h-24 w-full rounded-md mb-2 object-contain" />
                     <div className="mt-1 mb-1 text-base font-medium">Compress PDF</div>
                     <p className="text-muted-foreground text-xs leading-tight">
                       Reduce PDF file size while maintaining the highest document quality and clarity.

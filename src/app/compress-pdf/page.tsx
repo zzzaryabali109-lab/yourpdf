@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { CompressDropzoneIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
+import { CompressPdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Pencil } from "lucide-react";
 import styles from "../home.module.css";
 
@@ -159,7 +159,7 @@ export default function CompressPdfPage() {
             multiple={false}
             maxFiles={1}
             maxSize={MAX_PDF_SIZE}
-            icon={<CompressDropzoneIcon className="w-36 h-16" />}
+            icon={<CompressPdfImageIcon className="w-16 h-16 object-contain sm:w-20 sm:h-20" />}
             label="Drop your PDF here to compress"
             description="or click to browse files from your device"
             note="PDF only · Up to 100 MB"

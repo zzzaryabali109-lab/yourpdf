@@ -33,7 +33,7 @@ import {
   UnlockPdfIcon,
   ProtectPdfIcon,
   ComparePdfIcon,
-  AnimatedCompressPdf,
+  CompressPdfImageIcon,
   FileShareDropzoneIcon,
 } from "@/components/ui/convert-icons";
 
@@ -78,7 +78,7 @@ const mobileSections: MobileDropdownSection[] = [
     title: "PDF Tools & Optimization",
     icon: <SlidersHorizontal className="size-4 text-violet-600 dark:text-violet-400 shrink-0" />,
     items: [
-      { title: "Compress PDF", href: "/compress-pdf", desc: "Reduce file size", icon: <AnimatedCompressPdf className="size-4 shrink-0" /> },
+      { title: "Compress PDF", href: "/compress-pdf", desc: "Reduce file size", icon: <CompressPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "Merge PDF", href: "/merge-pdf", desc: "Combine PDFs", icon: <MergePdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "Split PDF", href: "/split-pdf", desc: "Split & remove pages", icon: <SplitPdfIcon className="size-4 shrink-0" /> },
       { title: "OCR PDF", href: "/ocr-pdf", desc: "Searchable text", icon: <OcrPdfIcon className="size-4 shrink-0" /> },
