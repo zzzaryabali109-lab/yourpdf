@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { JpgToPdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
+import { JpgResultPdfImageIcon, JpgToPdfImageIcon } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Layers, Pencil, X, Share2, Copy, Check, ExternalLink } from "lucide-react";
 import styles from "../home.module.css";
 
@@ -377,7 +377,7 @@ export default function JpgToPdfPage() {
                     <div className="space-y-4">
                       {/* File info card */}
                       <div className="p-3.5 rounded-xl border border-border/80 bg-card flex items-center gap-3">
-                        <PdfFileBadgeIcon className="size-11 shrink-0" />
+                        <JpgResultPdfImageIcon className="size-11 shrink-0 object-contain" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold truncate text-foreground" title={shareResult.filename}>
                             {shareResult.filename}
@@ -471,7 +471,7 @@ export default function JpgToPdfPage() {
                 {/* File details card */}
                 <div className="p-4 rounded-xl border border-border bg-card/60 space-y-3.5">
                   <div className="flex items-center gap-3">
-                    <PdfFileBadgeIcon className="size-11" />
+                    <JpgResultPdfImageIcon className="size-11 object-contain" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold truncate text-foreground" title={finalDownloadName}>
                         {finalDownloadName}
