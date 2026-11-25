@@ -8,7 +8,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { PdfFileBadgeIcon, SplitDropzoneIcon } from "@/components/ui/convert-icons";
+import { PdfFileBadgeIcon, SplitPdfImageIcon } from "@/components/ui/convert-icons";
 import { ShareModalView } from "@/components/ui/share-modal-view";
 import styles from "../home.module.css";
 
@@ -258,7 +258,7 @@ export default function SplitPdfPage() {
                   multiple={false}
                   maxFiles={1}
                   maxSize={MAX_PDF_SIZE}
-                  icon={<SplitDropzoneIcon className="w-16 h-16 sm:w-20 sm:h-20" />}
+                  icon={<SplitPdfImageIcon className="w-16 h-16 object-contain sm:w-20 sm:h-20" />}
                   label="Drop your PDF file here to split or remove pages"
                   description="or click to browse a file from your device to separate or remove pages"
                   note="PDF only · Up to 100 MB · Split & Remove Pages"

@@ -28,7 +28,7 @@ import {
   PdfToPowerpointIcon,
   PdfToExcelIcon,
   MergePdfImageIcon,
-  SplitPdfIcon,
+  SplitPdfImageIcon,
   OcrPdfIcon,
   UnlockPdfIcon,
   ProtectPdfIcon,
@@ -80,7 +80,7 @@ const mobileSections: MobileDropdownSection[] = [
     items: [
       { title: "Compress PDF", href: "/compress-pdf", desc: "Reduce file size", icon: <CompressPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "Merge PDF", href: "/merge-pdf", desc: "Combine PDFs", icon: <MergePdfImageIcon className="size-5 shrink-0 object-contain" /> },
-      { title: "Split PDF", href: "/split-pdf", desc: "Split & remove pages", icon: <SplitPdfIcon className="size-4 shrink-0" /> },
+      { title: "Split PDF", href: "/split-pdf", desc: "Split & remove pages", icon: <SplitPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "OCR PDF", href: "/ocr-pdf", desc: "Searchable text", icon: <OcrPdfIcon className="size-4 shrink-0" /> },
     ],
   },

@@ -25,6 +25,18 @@ export function CompressPdfImageIcon({ className = 'w-4 h-4 shrink-0 object-cont
   );
 }
 
+export function SplitPdfImageIcon({ className = 'w-4 h-4 shrink-0 object-contain' }: { className?: string }) {
+  return (
+    <Image
+      src="/split-pdf-icon.png"
+      alt=""
+      width={1254}
+      height={1254}
+      className={className}
+    />
+  );
+}
+
 export function JpgToPdfIcon({ className = 'w-5 h-5 shrink-0' }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">

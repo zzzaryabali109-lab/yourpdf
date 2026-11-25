@@ -23,7 +23,7 @@ import {
   PdfToExcelIcon,
   PdfToPdfAIcon,
   MergePdfImageIcon,
-  SplitPdfIcon,
+  SplitPdfImageIcon,
   OcrPdfIcon,
   UnlockPdfIcon,
   ProtectPdfIcon,
@@ -143,7 +143,7 @@ export function NavigationMenuDemo() {
               <ListItem
                 href="/split-pdf"
                 title="Split PDF"
-                icon={<SplitPdfIcon className="size-4 shrink-0" />}
+                icon={<SplitPdfImageIcon className="size-5 shrink-0 object-contain" />}
               >
                 Separate one page or a whole set for easy conversion into independent PDF files.
               </ListItem>
