@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { PDFDocument } from "pdf-lib";
 import { globalConversionQueue } from "./conversion-queue";
+import { libreOfficeUserProfileArg } from "./libreoffice";
 
 const execFileAsync = promisify(execFile);
 
@@ -98,15 +99,14 @@ export type WordConversionResult = {
   latencyMs?: number;
 };
 
-export function getGotenbergUrl(): string {
+export function getGotenbergUrl(): string | null {
   const envUrl = process.env.GOTENBERG_URL?.trim();
   if (envUrl) {
     return envUrl.replace(/\/+$/, "");
   }
-  // Inside Docker Compose, clearpdf container connects to gotenberg container
-  if (process.env.NODE_ENV === "production" && !process.env.PORT) {
-    return "http://gotenberg:3000";
-  }
+  // Production deployments use Gotenberg only when they explicitly configure it.
+  // Railway does not automatically start the Compose service from this Dockerfile.
+  if (process.env.NODE_ENV === "production") return null;
   // In local development outside Docker, default to port 3001
   // to avoid colliding with Next.js which listens on port 3000
   return "http://127.0.0.1:3001";
@@ -251,6 +251,7 @@ async function runLocalLibreOffice(
 
   try {
     await execFileAsync(sofficePath, [
+      libreOfficeUserProfileArg(tempDir),
       "--headless",
       "--convert-to",
       "pdf",
@@ -377,10 +378,10 @@ export async function convertWordToPdf(
     }
 
     const gotenbergBase = getGotenbergUrl();
-    const isSelf = isSelfAddress(gotenbergBase);
+    const isSelf = !gotenbergBase || isSelfAddress(gotenbergBase);
 
     // If Gotenberg is not pointing to the Next.js self-port, attempt Gotenberg conversion first
-    if (!isSelf) {
+    if (gotenbergBase && !isSelf) {
       const endpoint = `${gotenbergBase}/forms/libreoffice/convert`;
       const formData = new FormData();
       const mimeType =

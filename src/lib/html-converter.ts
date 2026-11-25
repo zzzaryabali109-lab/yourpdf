@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { PDFDocument } from "pdf-lib";
 import { globalConversionQueue } from "./conversion-queue";
+import { libreOfficeUserProfileArg } from "./libreoffice";
 
 const execFileAsync = promisify(execFile);
 
@@ -227,7 +228,10 @@ async function runNativeChromiumConversion(
 async function runGotenbergHtmlConversion(
   inputBytes: Uint8Array,
 ): Promise<Buffer | null> {
-  const gotenbergBase = process.env.GOTENBERG_URL?.trim() || "http://localhost:3001";
+  const configuredUrl = process.env.GOTENBERG_URL?.trim();
+  const gotenbergBase =
+    configuredUrl || (process.env.NODE_ENV === "production" ? null : "http://127.0.0.1:3001");
+  if (!gotenbergBase) return null;
   const endpoint = `${gotenbergBase.replace(/\/+$/, "")}/forms/chromium/convert/html`;
 
   const formData = new FormData();
@@ -281,7 +285,15 @@ async function runLocalLibreOffice(
   try {
     await execFileAsync(
       sofficePath,
-      ["--headless", "--convert-to", "pdf", "--outdir", tempDir, tempIn],
+      [
+        libreOfficeUserProfileArg(tempDir),
+        "--headless",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        tempDir,
+        tempIn,
+      ],
       { timeout: 60_000 },
     );
 

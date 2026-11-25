@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { PDFDocument } from "pdf-lib";
 import { globalConversionQueue } from "./conversion-queue";
+import { libreOfficeUserProfileArg } from "./libreoffice";
 
 const execFileAsync = promisify(execFile);
 
@@ -150,7 +151,16 @@ async function runLocalLibreOffice(
   try {
     await execFileAsync(
       sofficePath,
-      ["--headless", "--infilter=writer_pdf_import", "--convert-to", "docx", "--outdir", tempDir, tempIn],
+      [
+        libreOfficeUserProfileArg(tempDir),
+        "--headless",
+        "--infilter=writer_pdf_import",
+        "--convert-to",
+        "docx",
+        "--outdir",
+        tempDir,
+        tempIn,
+      ],
       { timeout: 60_000 },
     );
 
