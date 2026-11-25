@@ -139,8 +139,11 @@ export function SiteHeader() {
           aria-label="YourPDF home"
         >
           <span
-            className="text-[2.4rem] font-bold italic leading-none tracking-[-0.09em] text-black dark:text-white"
-            style={{ fontFamily: '"Brush Script MT", "Segoe Script", cursive' }}
+            className="text-[3rem] font-bold italic leading-none tracking-[-0.07em] text-black dark:text-white transition-colors"
+            style={{
+              fontFamily: '"Brush Script MT", "Segoe Script", cursive',
+              WebkitTextStroke: "0.45px currentColor",
+            }}
           >
             YourPDF
           </span>
@@ -170,8 +173,11 @@ export function SiteHeader() {
             onClick={() => setMobileOpen(false)}
           >
             <span
-              className="text-[2.15rem] font-bold italic leading-none tracking-[-0.09em] text-black dark:text-white"
-              style={{ fontFamily: '"Brush Script MT", "Segoe Script", cursive' }}
+              className="text-[2.65rem] font-bold italic leading-none tracking-[-0.07em] text-black dark:text-white transition-colors"
+              style={{
+                fontFamily: '"Brush Script MT", "Segoe Script", cursive',
+                WebkitTextStroke: "0.45px currentColor",
+              }}
             >
               YourPDF
             </span>
@@ -210,8 +216,11 @@ export function SiteHeader() {
                 onClick={() => setMobileOpen(false)}
               >
                 <span
-                  className="text-[1.9rem] font-bold italic leading-none tracking-[-0.09em] text-black dark:text-white"
-                  style={{ fontFamily: '"Brush Script MT", "Segoe Script", cursive' }}
+                  className="text-[2.25rem] font-bold italic leading-none tracking-[-0.07em] text-black dark:text-white transition-colors"
+                  style={{
+                    fontFamily: '"Brush Script MT", "Segoe Script", cursive',
+                    WebkitTextStroke: "0.45px currentColor",
+                  }}
                 >
                   YourPDF
                 </span>
