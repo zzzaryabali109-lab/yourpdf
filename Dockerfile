@@ -35,7 +35,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-openpyxl \
   && rm -rf /var/lib/apt/lists/* \
   && python3 -m venv --system-site-packages /opt/clearpdf-python \
-  && /opt/clearpdf-python/bin/python -m pip install --no-cache-dir "pypdf[crypto]==7.1.1" \
+  && /opt/clearpdf-python/bin/python -m pip install --no-cache-dir "pypdf[crypto]==7.1.1" "pypdfium2==5.15.2" \
+  && /opt/clearpdf-python/bin/python -c "import pypdfium2; import pypdfium2.raw; from pypdfium2._helpers.misc import PdfiumError" \
   && groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs --create-home --home-dir /home/nextjs nextjs \
   && soffice --headless --version
