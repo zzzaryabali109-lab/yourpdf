@@ -1,3 +1,20 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:de3774b0060c3bfcd0ec43d28b9d76b70be0964e527d44d2d67c11a0ead5aaf9
-size 244
+node_modules
+.next
+.data
+.git
+.env*
+!.env.example
+*.tsbuildinfo
+dist
+.cloudflare
+.vinext
+aspose-env/
+.venv/
+.pnpm-store/
+**/__pycache__/
+*.py[cod]
+eng.traineddata
+eng.traineddata.gz
+test-aspose-out.pdf
+scripts/test-*
+scripts/load-test-*

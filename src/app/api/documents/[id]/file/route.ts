@@ -1,3 +1,25 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:df1177ce81f8994bcc9a154ac926cd184d13126e00e95b20c7976e5a4de0d6bd
-size 1271
+import { getTransientDocument } from "@/lib/storage";
+import { NextResponse } from "next/server";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!UUID_PATTERN.test(id)) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+  const document = getTransientDocument(id);
+  if (!document) return NextResponse.json({ error: "Document not found or temporary session expired." }, { status: 404 });
+
+  const download = new URL(request.url).searchParams.get("download") === "1";
+  const customName = new URL(request.url).searchParams.get("name")?.trim();
+  const filename = customName || document.metadata.filename;
+  const safeName = encodeURIComponent(filename).replaceAll("'", "%27");
+  return new NextResponse(new Uint8Array(document.original), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${safeName}`,
+      "Content-Length": String(document.original.byteLength),
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}

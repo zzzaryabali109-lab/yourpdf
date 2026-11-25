@@ -1,3 +1,26 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:5c65b66d20eb91100c453481696b162999e729430914450f26e714f698399ddc
-size 981
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+  partialPrefetching: true,
+  serverExternalPackages: ["pdfjs-dist", "@adobe/pdfservices-node-sdk"],
+  output: "standalone",
+  async headers() {
+    const securityHeaders = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+      { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+    ];
+
+    if (process.env.NODE_ENV === "production") {
+      securityHeaders.push({ key: "X-Frame-Options", value: "DENY" });
+      securityHeaders.push({ key: "Cross-Origin-Resource-Policy", value: "same-origin" });
+      securityHeaders.push({ key: "Strict-Transport-Security", value: "max-age=31536000" });
+    }
+
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
+};
+
+export default nextConfig;

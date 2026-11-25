@@ -1,3 +1,3 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:3df2df53b5630920f54bcc09cb96da1f7e07d27db8fd15eabad97ad4fd07121c
-size 53
+convertapi==2.0.1
+requests>=2.25.0
+pypdfium2==5.12.1

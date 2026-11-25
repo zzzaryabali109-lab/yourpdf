@@ -1,3 +1,16 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:34f753b888978bdc020bd815ffb27acb79d1378b87ed9907b1c5798dad0384bc
-size 439
+declare module "pdfjs-dist/image_decoders/pdf.image_decoders.mjs" {
+  export interface JpegDecoderInstance {
+    width: number;
+    height: number;
+    numComponents: number;
+    parse(data: Uint8Array): void;
+    getData(options: { width: number; height: number; forceRGB?: boolean }): Uint8Array;
+  }
+
+  export interface JpegDecoderConstructor {
+    new (): JpegDecoderInstance;
+  }
+
+  export const JpegImage: JpegDecoderConstructor;
+}
+

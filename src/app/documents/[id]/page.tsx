@@ -1,3 +1,19 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:5a84a71642d0f1ead36df69a2ce884caecf7a317f36ec71f0c0ade3a4fdf62dc
-size 754
+import { Suspense } from "react";
+import Workspace from "./workspace";
+
+function WorkspaceFromParams({ params }: { params: Promise<{ id: string }> }) {
+  return <DocumentResolver params={params} />;
+}
+
+async function DocumentResolver({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <Workspace key={id} documentId={id} />;
+}
+
+export default function DocumentPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<main style={{ display: "grid", minHeight: "100svh", placeItems: "center", background: "#f4f5f6", color: "#747a80", fontFamily: "Arial, sans-serif", fontSize: 12 }}>Opening document…</main>}>
+      <WorkspaceFromParams params={params} />
+    </Suspense>
+  );
+}

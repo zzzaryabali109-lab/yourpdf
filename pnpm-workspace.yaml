@@ -1,3 +1,7 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:42594b902a81d08dd90247ef472cd0a5b0a5acf9c22b931d5c9195685e0c2d99
-size 123
+allowBuilds:
+  sharp: false
+  tesseract.js: true
+  unrs-resolver: false
+overrides:
+  uuid: 11.1.1
+  'minimatch@10': 11.0.1

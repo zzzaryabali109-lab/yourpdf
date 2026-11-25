@@ -1,3 +1,149 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:97eb15369fba2a0f88c07441e35e12b110bb5a82aec0081a9f37ea6b765bbd48
-size 4633
+import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { isSameOriginRequest, consumeRateLimit } from "@/lib/request-guards";
+import { createTransientDocument } from "@/lib/storage";
+import {
+  unlockPdfDocument,
+  validatePdfForUnlocking,
+  MAX_UNLOCK_PDF_SIZE,
+  UnlockPdfError,
+  sanitizeErrorMessage,
+} from "@/lib/unlock-pdf-service";
+
+const RATE_LIMIT_COUNT = 30;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
+export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      { error: "This request was rejected." },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const rateLimit = consumeRateLimit("unlock-pdf", RATE_LIMIT_COUNT, RATE_LIMIT_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit reached. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+
+  try {
+    const formData = await request.formData();
+    let file = formData.get("file");
+    if (!file) {
+      const files = formData.getAll("files");
+      if (files && files.length > 0) {
+        file = files[0];
+      }
+    }
+
+    if (!file || !(file instanceof Blob)) {
+      return NextResponse.json(
+        { error: "Please select a PDF document (.pdf) to unlock." },
+        { status: 400 },
+      );
+    }
+
+    const passwordRaw = formData.get("password");
+    const password = typeof passwordRaw === "string" ? passwordRaw : undefined;
+
+    const filename = (file as File).name || "document.pdf";
+    const arrayBuf = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+
+    if (bytes.byteLength === 0) {
+      return NextResponse.json(
+        { error: "The uploaded file is empty." },
+        { status: 400 },
+      );
+    }
+
+    if (bytes.byteLength > MAX_UNLOCK_PDF_SIZE) {
+      return NextResponse.json(
+        { error: "The PDF document exceeds the 100 MB file size limit." },
+        { status: 400 },
+      );
+    }
+
+    const validation = validatePdfForUnlocking(bytes, filename);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error || "Please upload a valid PDF document." },
+        { status: 400 },
+      );
+    }
+
+    // Unlock PDF and strip all password/permissions restrictions
+    const result = await unlockPdfDocument(bytes, filename, password);
+
+    const id = randomUUID();
+    const baseName = filename.replace(/\.pdf$/i, "") || "document";
+    const outputFilename = `${baseName}_unlocked.pdf`;
+
+    // Save as transient document so it can be edited in workspace or downloaded
+    createTransientDocument(
+      {
+        id,
+        filename: outputFilename,
+        size: result.pdfBuffer.byteLength,
+        uploadedAt: new Date().toISOString(),
+      },
+      result.pdfBuffer,
+    );
+
+    const url = new URL(request.url);
+    const downloadDirectly =
+      url.searchParams.get("download") === "1" || url.searchParams.get("direct") === "1";
+
+    if (downloadDirectly) {
+      const safeName = encodeURIComponent(outputFilename).replaceAll("'", "%27");
+      return new NextResponse(new Uint8Array(result.pdfBuffer), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename*=UTF-8''${safeName}`,
+          "Content-Length": String(result.pdfBuffer.byteLength),
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      });
+    }
+
+    return NextResponse.json(
+      {
+        id,
+        filename: outputFilename,
+        originalSize: bytes.byteLength,
+        outputSize: result.pdfBuffer.byteLength,
+        pageCount: result.pageCount,
+        wasEncrypted: result.wasEncrypted,
+        restrictionsRemoved: result.restrictionsRemoved,
+        latencyMs: result.latencyMs,
+        downloadUrl: `/api/documents/${id}/file?download=1`,
+      },
+      { status: 200, headers: { "Cache-Control": "private, no-store" } },
+    );
+  } catch (error) {
+    console.error("[Unlock PDF] API failed:", error);
+    if (error instanceof UnlockPdfError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code || "UNLOCK_ERROR",
+        },
+        { status: error.statusCode },
+      );
+    }
+    const message = sanitizeErrorMessage(
+      error instanceof Error ? error.message : "Failed to unlock PDF.",
+    );
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

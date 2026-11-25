@@ -1,3 +1,22 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:1bd34fdcf86f09179fb4ffb42a5ecaaefd3c8dc197efd7749510327ddc0aeaae
-size 579
+import { Suspense } from "react";
+import FileShareDownloadClientPage from "./client-page";
+
+function FileShareFallback() {
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-background text-foreground">
+      <p className="text-sm text-muted-foreground">Loading shared file details...</p>
+    </main>
+  );
+}
+
+export default function FileShareDownloadPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<FileShareFallback />}>
+      <FileShareDownloadClientPage params={params} />
+    </Suspense>
+  );
+}

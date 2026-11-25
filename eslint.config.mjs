@@ -1,3 +1,19 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:388d18557157ef6000a28eb80099abe43d5820353a9ccdddb5e6bb296164f3cf
-size 498
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "public/pdf.worker.min.mjs",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;

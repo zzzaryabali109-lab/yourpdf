@@ -1,3 +1,49 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:eb3f072932abafe309c813e97669dafb171ecbfcbe0b892641830927ffcae8d3
-size 1530
+services:
+  clearpdf:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - GOTENBERG_URL=http://gotenberg:3000
+      - PDF_SERVICES_CLIENT_ID=${PDF_SERVICES_CLIENT_ID:-}
+      - PDF_SERVICES_CLIENT_SECRET=${PDF_SERVICES_CLIENT_SECRET:-}
+      - PDF_SERVICES_OCR_LOCALE=${PDF_SERVICES_OCR_LOCALE:-en-US}
+    depends_on:
+      gotenberg:
+        condition: service_healthy
+    networks:
+      - clearpdf-internal
+
+  gotenberg:
+    # Pinned stable Gotenberg release (Do not use latest)
+    image: gotenberg/gotenberg:8.40.0
+    restart: unless-stopped
+    # Security: Port 3000 is NOT published to host or internet.
+    # It is accessible strictly within the private clearpdf-internal Docker network.
+    expose:
+      - "3000"
+    environment:
+      # Disable the downloadFrom feature globally to prevent SSRF
+      - API_DISABLE_DOWNLOAD_FROM=true
+      # Restrict LibreOffice from accessing RFC1918 private / intranet IPs
+      - LIBREOFFICE_DENY_PRIVATE_IPS=true
+      # Restrict LibreOffice from fetching external internet resources in uploaded documents
+      - LIBREOFFICE_DENY_PUBLIC_IPS=true
+      # 2-minute conversion timeout
+      - API_TIMEOUT=120s
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - clearpdf-internal
+
+networks:
+  clearpdf-internal:
+    driver: bridge

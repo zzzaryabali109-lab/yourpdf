@@ -1,3 +1,46 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:79f0fa5323e280bfd5a8776ac1fc1dfbb6808ebae187ba2493028e336d8fc71f
-size 1392
+import { NextResponse } from "next/server";
+import { getSharedMetadata } from "@/lib/share-storage";
+
+function getPublicOrigin(request: Request): string {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const hostHeader = request.headers.get("host");
+  const rawHost = forwardedHost || hostHeader || new URL(request.url).host;
+  const cleanHost = rawHost.replace(/^0\.0\.0\.0/, "localhost");
+  const proto =
+    request.headers.get("x-forwarded-proto") ||
+    (request.url.startsWith("https") ? "https" : "http");
+  return `${proto}://${cleanHost}`;
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const metadata = getSharedMetadata(id);
+
+    if (!metadata) {
+      return NextResponse.json(
+        { error: "This shared file does not exist or has expired." },
+        { status: 404 }
+      );
+    }
+
+    const origin = getPublicOrigin(request);
+    const shareUrl = `${origin}/file-share/${metadata.id}`;
+    const downloadUrl = `${origin}/api/share/${metadata.id}/download`;
+
+    return NextResponse.json({
+      ...metadata,
+      shareUrl,
+      downloadUrl,
+    });
+  } catch (error) {
+    console.error("[File Share Metadata Error]:", error);
+    return NextResponse.json(
+      { error: "Could not retrieve shared file info." },
+      { status: 500 }
+    );
+  }
+}
