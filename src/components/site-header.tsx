@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavigationMenuDemo } from "@/components/ui/demo";
@@ -133,6 +134,20 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Desktop Header (>= 768px): Centered Navigation Menu + Right Theme Toggle */}
       <div className="relative hidden md:flex h-16 w-full items-center justify-center px-4 sm:px-6">
+        <Link
+          href="/"
+          className="absolute left-4 sm:left-6 top-1/2 z-10 -translate-y-1/2 rounded-md bg-white px-1.5 py-1 transition-opacity hover:opacity-90"
+          aria-label="YourPDF home"
+        >
+          <Image
+            src="/yourpdf-logo.png"
+            alt="YourPDF"
+            width={1036}
+            height={462}
+            loading="eager"
+            className="h-12 w-auto object-contain"
+          />
+        </Link>
         <NavigationMenuDemo />
         <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 flex items-center z-10">
           <ThemeToggle />
@@ -154,13 +169,17 @@ export function SiteHeader() {
           </button>
           <Link
             href="/"
-            className="flex items-center gap-2 group transition-opacity hover:opacity-90 cursor-pointer"
+            className="flex items-center rounded-md bg-white px-1.5 py-1 transition-opacity hover:opacity-90 cursor-pointer"
             onClick={() => setMobileOpen(false)}
           >
-            <span className="flex size-7 items-center justify-center rounded-lg bg-red-600 text-white font-extrabold text-xs shadow-xs">
-              PDF
-            </span>
-            <span className="font-bold tracking-tight text-foreground text-base">ClearPDF</span>
+            <Image
+              src="/yourpdf-logo.png"
+              alt="YourPDF"
+              width={1036}
+              height={462}
+              loading="eager"
+              className="h-11 w-auto object-contain"
+            />
           </Link>
         </div>
 
@@ -192,13 +211,17 @@ export function SiteHeader() {
             <div className="flex items-center justify-between h-14 px-4 border-b border-border/50 shrink-0 bg-white">
               <Link
                 href="/"
-                className="flex items-center gap-2 group transition-opacity hover:opacity-90 cursor-pointer"
+                className="flex items-center rounded-md bg-white px-1.5 py-1 transition-opacity hover:opacity-90 cursor-pointer"
                 onClick={() => setMobileOpen(false)}
               >
-                <span className="flex size-6.5 items-center justify-center rounded-lg bg-red-600 text-white font-extrabold text-[11px] shadow-xs">
-                  PDF
-                </span>
-                <span className="font-bold tracking-tight text-foreground text-sm">ClearPDF</span>
+                <Image
+                  src="/yourpdf-logo.png"
+                  alt="YourPDF"
+                  width={1036}
+                  height={462}
+                  loading="eager"
+                  className="h-9 w-auto object-contain"
+                />
               </Link>
               <button
                 type="button"
