@@ -24,6 +24,7 @@ ENV PYTHON_BIN=/opt/clearpdf-python/bin/python
 ENV PATH="/opt/clearpdf-python/bin:${PATH}"
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ghostscript \
     libreoffice-writer-nogui \
     libreoffice-calc-nogui \
     libreoffice-impress-nogui \

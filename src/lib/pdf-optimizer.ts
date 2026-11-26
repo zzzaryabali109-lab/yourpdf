@@ -644,6 +644,115 @@ export async function validateCandidate(
   }
 }
 
+/**
+ * Validates a rewritten compression candidate. PDF writers may rearrange page
+ * operators while preserving the same page geometry and extracted text, so
+ * this check does not require identical operator counts or text-item splits.
+ */
+export async function validateCompressionCandidate(
+  originalBytes: Buffer,
+  candidateBytes: Buffer,
+): Promise<ValidationReport> {
+  let originalPdf: PDFDocument;
+  let candidatePdf: PDFDocument;
+
+  try {
+    originalPdf = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+    candidatePdf = await PDFDocument.load(candidateBytes, { ignoreEncryption: true });
+  } catch (error) {
+    return {
+      valid: false,
+      reason: `PDF load failed: ${error instanceof Error ? error.message : "invalid PDF"}`,
+      pageCount: 0,
+    };
+  }
+
+  if (originalPdf.getPageCount() !== candidatePdf.getPageCount()) {
+    return {
+      valid: false,
+      reason: "The page count changed during compression.",
+      pageCount: candidatePdf.getPageCount(),
+    };
+  }
+
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const originalLoading = pdfjs.getDocument({ data: new Uint8Array(originalBytes) });
+  const candidateLoading = pdfjs.getDocument({ data: new Uint8Array(candidateBytes) });
+
+  try {
+    const [originalDocument, candidateDocument] = await Promise.all([
+      originalLoading.promise,
+      candidateLoading.promise,
+    ]);
+
+    for (let pageNumber = 1; pageNumber <= originalDocument.numPages; pageNumber++) {
+      const [originalPage, candidatePage] = await Promise.all([
+        originalDocument.getPage(pageNumber),
+        candidateDocument.getPage(pageNumber),
+      ]);
+
+      const originalView = originalPage.view;
+      const candidateView = candidatePage.view;
+      const originalWidth = originalView[2] - originalView[0];
+      const candidateWidth = candidateView[2] - candidateView[0];
+      const originalHeight = originalView[3] - originalView[1];
+      const candidateHeight = candidateView[3] - candidateView[1];
+
+      if (
+        Math.abs(originalWidth - candidateWidth) > 0.5 ||
+        Math.abs(originalHeight - candidateHeight) > 0.5 ||
+        originalPage.rotate !== candidatePage.rotate
+      ) {
+        return {
+          valid: false,
+          reason: `Page ${pageNumber} dimensions or rotation changed during compression.`,
+          pageCount: originalDocument.numPages,
+        };
+      }
+
+      const [originalText, candidateText] = await Promise.all([
+        originalPage.getTextContent(),
+        candidatePage.getTextContent(),
+      ]);
+      const normalizeText = (items: unknown[]) =>
+        items
+          .map((item) => {
+            if (typeof item !== "object" || item === null || !("str" in item)) return "";
+            const value = (item as { str?: unknown }).str;
+            return typeof value === "string" ? value : "";
+          })
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      if (
+        normalizeText(originalText.items as unknown[]) !==
+        normalizeText(candidateText.items as unknown[])
+      ) {
+        return {
+          valid: false,
+          reason: `Text content changed on page ${pageNumber}.`,
+          pageCount: originalDocument.numPages,
+        };
+      }
+    }
+
+    return {
+      valid: true,
+      pageCount: originalDocument.numPages,
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      reason: `Compression validation failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      pageCount: 0,
+    };
+  } finally {
+    await originalLoading.destroy().catch(() => undefined);
+    await candidateLoading.destroy().catch(() => undefined);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Adaptive PDF Compression Engine
 // ---------------------------------------------------------------------------
@@ -689,7 +798,7 @@ export async function optimizePdf(inputBytes: Buffer): Promise<Buffer> {
       continue;
     }
 
-    const report = await validateCandidate(inputBytes, candidate);
+    const report = await validateCompressionCandidate(inputBytes, candidate);
     if (report.valid) {
       bestBytes = candidate;
     }
