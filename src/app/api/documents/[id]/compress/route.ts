@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { compressTransientDocument } from "@/lib/adobe-compress";
+import { compressTransientDocument } from "@/lib/pdf-compression-service";
 import { getTransientDocument } from "@/lib/storage";
 import { consumeRateLimit, isSameOriginRequest } from "@/lib/request-guards";
 

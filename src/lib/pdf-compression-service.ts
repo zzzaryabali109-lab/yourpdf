@@ -10,7 +10,6 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { getTransientDocument, saveCompressedPdf } from "@/lib/storage";
-import { optimizePdf, validateCompressionCandidate } from "@/lib/pdf-optimizer";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
 const MAX_CONCURRENT_COMPRESSIONS = 1;
@@ -18,9 +17,15 @@ const GHOSTSCRIPT_TIME_BUDGET_MS = 90_000;
 const execFileAsync = promisify(execFile);
 
 const GHOSTSCRIPT_PROFILES = [
-  { dpi: 180, qFactor: 0.88 },
-  { dpi: 150, qFactor: 0.82 },
-  { dpi: 120, qFactor: 0.76 },
+  // The upstream Quartz filter scales images to 90% and uses JPEG quality
+  // -0.70. Ghostscript has no relative image-scale setting, so start near
+  // 90% of a 300 DPI scan, then lower the ceiling only if needed.
+  { dpi: 270, qFactor: 0.7 },
+  { dpi: 240, qFactor: 0.7 },
+  { dpi: 210, qFactor: 0.7 },
+  { dpi: 180, qFactor: 0.7 },
+  { dpi: 150, qFactor: 0.7 },
+  { dpi: 120, qFactor: 0.7 },
 ] as const;
 
 let activeCompressions = 0;
@@ -50,6 +55,72 @@ function hasPdfSignature(bytes: Buffer): boolean {
   return bytes.subarray(0, 1024).includes(Buffer.from("%PDF-"));
 }
 
+async function validateCompressionCandidate(
+  originalBytes: Buffer,
+  candidateBytes: Buffer,
+): Promise<boolean> {
+  let originalPdf: PDFDocument;
+  let candidatePdf: PDFDocument;
+
+  try {
+    originalPdf = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+    candidatePdf = await PDFDocument.load(candidateBytes, { ignoreEncryption: true });
+  } catch {
+    return false;
+  }
+
+  if (originalPdf.getPageCount() !== candidatePdf.getPageCount()) return false;
+
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const originalLoading = pdfjs.getDocument({ data: new Uint8Array(originalBytes) });
+  const candidateLoading = pdfjs.getDocument({ data: new Uint8Array(candidateBytes) });
+
+  try {
+    const [originalDocument, candidateDocument] = await Promise.all([
+      originalLoading.promise,
+      candidateLoading.promise,
+    ]);
+
+    for (let pageNumber = 1; pageNumber <= originalDocument.numPages; pageNumber++) {
+      const [originalPage, candidatePage] = await Promise.all([
+        originalDocument.getPage(pageNumber),
+        candidateDocument.getPage(pageNumber),
+      ]);
+
+      const originalView = originalPage.view;
+      const candidateView = candidatePage.view;
+      const originalText = await originalPage.getTextContent();
+      const candidateText = await candidatePage.getTextContent();
+      const normalizeText = (items: unknown[]) =>
+        items
+          .map((item) => {
+            if (typeof item !== "object" || item === null || !("str" in item)) return "";
+            const value = (item as { str?: unknown }).str;
+            return typeof value === "string" ? value : "";
+          })
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      if (
+        Math.abs((originalView[2] - originalView[0]) - (candidateView[2] - candidateView[0])) > 0.5 ||
+        Math.abs((originalView[3] - originalView[1]) - (candidateView[3] - candidateView[1])) > 0.5 ||
+        originalPage.rotate !== candidatePage.rotate ||
+        normalizeText(originalText.items as unknown[]) !== normalizeText(candidateText.items as unknown[])
+      ) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await originalLoading.destroy().catch(() => undefined);
+    await candidateLoading.destroy().catch(() => undefined);
+  }
+}
+
 function hasInteractiveContent(document: PDFDocument): boolean {
   if (document.catalog.AcroForm()) return true;
 
@@ -59,9 +130,9 @@ function hasInteractiveContent(document: PDFDocument): boolean {
   });
 }
 
-async function optimizeWithGhostscript(inputBytes: Buffer, document: PDFDocument): Promise<Buffer | null> {
-  // pdfwrite does not preserve every annotation type (notably links and form
-  // widgets), so use the structure-preserving optimizer for interactive PDFs.
+async function compressWithLocalImageFilter(inputBytes: Buffer, document: PDFDocument): Promise<Buffer | null> {
+  // The reference implementation redraws pages, so avoid rewriting PDFs that
+  // contain interactive elements the source Quartz path would not preserve.
   if (hasInteractiveContent(document)) return null;
 
   const workingDirectory = await mkdtemp(path.join(os.tmpdir(), "yourpdf-compress-"));
@@ -69,6 +140,8 @@ async function optimizeWithGhostscript(inputBytes: Buffer, document: PDFDocument
   const outputPath = path.join(workingDirectory, "output.pdf");
   const startedAt = Date.now();
   let bestCandidate: Buffer | null = null;
+  let successfulProfiles = 0;
+  let lastFailure: unknown;
 
   try {
     await writeFile(inputPath, inputBytes, { mode: 0o600 });
@@ -77,6 +150,7 @@ async function optimizeWithGhostscript(inputBytes: Buffer, document: PDFDocument
       const remainingTime = GHOSTSCRIPT_TIME_BUDGET_MS - (Date.now() - startedAt);
       if (remainingTime < 1_000) break;
 
+      await rm(outputPath, { force: true }).catch(() => undefined);
       const imageDictionary = `<< /QFactor ${profile.qFactor} /Blend 1 /HSamples [2 1 1 2] /VSamples [2 1 1 2] >>`;
       const parameters = `<< /ColorImageDict ${imageDictionary} /GrayImageDict ${imageDictionary} /LockDistillerParams true >> setdistillerparams`;
       const args = [
@@ -120,28 +194,33 @@ async function optimizeWithGhostscript(inputBytes: Buffer, document: PDFDocument
           maxBuffer: 2 * 1024 * 1024,
           windowsHide: true,
         });
+        successfulProfiles++;
 
         const candidate = await readFile(outputPath);
         if (!hasPdfSignature(candidate) || candidate.byteLength >= inputBytes.byteLength) continue;
 
-        const validation = await validateCompressionCandidate(inputBytes, candidate);
-        if (!validation.valid) continue;
+        if (!await validateCompressionCandidate(inputBytes, candidate)) continue;
 
         if (!bestCandidate || candidate.byteLength < bestCandidate.byteLength) {
           bestCandidate = candidate;
         }
 
-        // Stop once the requested high reduction range is reached; deeper
-        // downsampling would trade more image detail for little user benefit.
+        // Stop once the requested reduction range is reached to avoid
+        // sacrificing additional image detail.
         if (candidate.byteLength <= inputBytes.byteLength * 0.2) break;
       } catch (error) {
-        // Ghostscript is optional during local development. The Docker runtime
-        // installs it; if it is unavailable or rejects a profile, try the next
-        // profile and ultimately fall back to the local JavaScript optimizer.
+        // The Linux deployment installs Ghostscript. Surface a clear message
+        // instead of silently using a different compression implementation.
         if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-          break;
+          throw new Error("The local PDF compression engine is unavailable. Please redeploy the service.");
         }
+        lastFailure = error;
       }
+    }
+
+    if (successfulProfiles === 0 && lastFailure) {
+      const detail = lastFailure instanceof Error ? lastFailure.message : "unknown Ghostscript error";
+      throw new Error(`The local PDF compression engine could not process this file: ${detail}`);
     }
 
     return bestCandidate;
@@ -163,7 +242,7 @@ export type CompressDocumentResult = {
 };
 
 /**
- * Compresses the uploaded PDF locally with the adaptive multi-profile engine.
+ * Compresses a PDF with a Quartz-filter-inspired local image recompression pass.
  */
 export async function compressTransientDocument(
   id: string,
@@ -213,12 +292,10 @@ export async function compressTransientDocument(
         throw new Error("This PDF file is corrupted or not a valid document.");
       }
 
-      const ghostscriptCandidate = await optimizeWithGhostscript(originalBytes, originalPdf);
-      const localCandidate = await optimizePdf(originalBytes);
-      const candidateBytes = ghostscriptCandidate && ghostscriptCandidate.byteLength < localCandidate.byteLength
-        ? ghostscriptCandidate
-        : localCandidate;
-      const compressedBytes = candidateBytes.byteLength < originalSize ? candidateBytes : originalBytes;
+      const candidateBytes = await compressWithLocalImageFilter(originalBytes, originalPdf);
+      const compressedBytes = candidateBytes && candidateBytes.byteLength < originalSize
+        ? candidateBytes
+        : originalBytes;
       const compressedSize = compressedBytes.byteLength;
       const bytesSaved = originalSize - compressedSize;
       const stats = {
@@ -227,11 +304,7 @@ export async function compressTransientDocument(
         bytesSaved,
         percentage: originalSize > 0 ? Number(((bytesSaved / originalSize) * 100).toFixed(1)) : 0,
         compressedAt: new Date().toISOString(),
-        method: bytesSaved > 0
-          ? candidateBytes === ghostscriptCandidate
-            ? "local-ghostscript-image-optimizer"
-            : "local-adaptive-pdf-optimizer"
-          : "local-no-size-reduction",
+        method: bytesSaved > 0 ? "quartz-filter-inspired-local-compression" : "local-no-size-reduction",
         pageCount,
       };
 
