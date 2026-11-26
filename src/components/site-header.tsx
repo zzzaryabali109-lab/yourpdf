@@ -68,7 +68,7 @@ const mobileSections: MobileDropdownSection[] = [
     title: "Convert from PDF",
     icon: <FolderUp className="size-4 text-blue-600 dark:text-blue-400 shrink-0" />,
     items: [
-      { title: "PDF to JPG", href: "/pdf-to-jpg", icon: <PdfToJpgIcon className="size-4 shrink-0" /> },
+      { title: "PDF to JPG", href: "/pdf-to-jpg", icon: <PdfToJpgIcon className="w-7 h-4 shrink-0 object-contain" /> },
       { title: "PDF to WORD", href: "/pdf-to-word", icon: <PdfToWordIcon className="size-4 shrink-0" /> },
       { title: "PDF to POWERPOINT", href: "/pdf-to-powerpoint", icon: <PdfToPowerpointIcon className="size-4 shrink-0" /> },
       { title: "PDF to EXCEL", href: "/pdf-to-excel", icon: <PdfToExcelIcon className="size-4 shrink-0" /> },
