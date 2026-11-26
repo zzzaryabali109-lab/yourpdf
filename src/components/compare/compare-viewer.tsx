@@ -263,6 +263,9 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
           <span className="flex items-center gap-1.5 text-rose-500">
             <span className="size-2 rounded-full bg-rose-500" /> Removed
           </span>
+          <span className="flex items-center gap-1.5 text-amber-500">
+            <span className="size-2 rounded-full bg-amber-500" /> Modified
+          </span>
           <span className="flex items-center gap-1.5 text-emerald-500">
             <span className="size-2 rounded-full bg-emerald-500" /> Added
           </span>
@@ -297,7 +300,7 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
                     width: `${box.width}%`,
                     height: `${box.height}%`,
                   }}
-                  title={box.text ? `Removed: "${box.text}"` : "Removed text"}
+                  title={box.text ? `Removed: "${box.text}"` : box.type === "modified" ? "Changed visual content" : "Removed visual content"}
                 />
               ))}
             </div>
@@ -330,7 +333,7 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
                     width: `${box.width}%`,
                     height: `${box.height}%`,
                   }}
-                  title={box.text ? `Added: "${box.text}"` : "Added text"}
+                  title={box.text ? `Added: "${box.text}"` : box.type === "modified" ? "Changed visual content" : "Added visual content"}
                 />
               ))}
             </div>

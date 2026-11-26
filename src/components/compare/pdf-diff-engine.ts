@@ -46,6 +46,8 @@ export type WordWithBounds = {
   height: number; // percentage of viewport height
 };
 
+const MIN_WORDS_FOR_TEXT_DIFF = 4;
+
 /**
  * Extract individual words with their accurate geometric bounding boxes from a PDF page.
  * Words are sorted in reading order (top-to-bottom, left-to-right).
@@ -271,124 +273,294 @@ function computeTextDiff(
 }
 
 /**
- * Pixel block visual comparison on rendered page canvases (fallback for pure scanned PDFs without text).
+ * Visual comparison fallback for scanned pages and pages without extractable text.
+ */
+type PageCanvasBounds = {
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+type VisualDiffResult = {
+  diffs1: DiffBox[];
+  diffs2: DiffBox[];
+  totalDiffs: number;
+  additions: number;
+  deletions: number;
+};
+
+function getLuminance(data: Uint8ClampedArray, index: number): number {
+  return (data[index] * 77 + data[index + 1] * 150 + data[index + 2] * 29) >> 8;
+}
+
+/**
+ * Register two page renders with a small translation search. This absorbs the few-pixel
+ * shifts common in rescanned or re-exported documents before looking for changed content.
+ */
+function estimateVisualAlignment(
+  data1: Uint8ClampedArray,
+  data2: Uint8ClampedArray,
+  width: number,
+  height: number
+): { x: number; y: number } {
+  const radius = Math.min(8, Math.floor(Math.min(width, height) / 80));
+  if (radius < 1) return { x: 0, y: 0 };
+
+  const stride = Math.max(3, Math.ceil(Math.max(width, height) / 180));
+  let bestX = 0;
+  let bestY = 0;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      let totalDifference = 0;
+      let samples = 0;
+
+      for (let y = radius; y < height - radius; y += stride) {
+        const y2 = y + dy;
+        for (let x = radius; x < width - radius; x += stride) {
+          const x2 = x + dx;
+          const index1 = (y * width + x) * 4;
+          const index2 = (y2 * width + x2) * 4;
+          totalDifference += Math.abs(getLuminance(data1, index1) - getLuminance(data2, index2));
+          samples++;
+        }
+      }
+
+      if (samples === 0) continue;
+      const score = totalDifference / samples + (Math.abs(dx) + Math.abs(dy)) * 0.001;
+      if (score < bestScore) {
+        bestScore = score;
+        bestX = dx;
+        bestY = dy;
+      }
+    }
+  }
+
+  return { x: bestX, y: bestY };
+}
+
+function createVisualPageBox(
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  page: PageCanvasBounds,
+  shiftX: number,
+  shiftY: number,
+  type: DiffBox["type"],
+  id: string
+): DiffBox | null {
+  const pageLeft = Math.max(0, left + shiftX - page.offsetX);
+  const pageTop = Math.max(0, top + shiftY - page.offsetY);
+  const pageRight = Math.min(page.width, right + shiftX - page.offsetX);
+  const pageBottom = Math.min(page.height, bottom + shiftY - page.offsetY);
+  if (pageRight <= pageLeft || pageBottom <= pageTop) return null;
+
+  return {
+    id,
+    x: (pageLeft / page.width) * 100,
+    y: (pageTop / page.height) * 100,
+    width: ((pageRight - pageLeft) / page.width) * 100,
+    height: ((pageBottom - pageTop) / page.height) * 100,
+    type,
+  };
+}
+
+/**
+ * Render both pages at a shared scale, align small scan shifts, then cluster changed pixels
+ * into page-relative boxes. This works even when PDFs contain only scanned page images.
  */
 async function computeVisualDiffBoxes(
   page1: PDFPageProxy | null,
   page2: PDFPageProxy | null
-): Promise<{ diffs1: DiffBox[]; diffs2: DiffBox[] }> {
-  if (!page1 || !page2) return { diffs1: [], diffs2: [] };
+): Promise<VisualDiffResult> {
+  const empty: VisualDiffResult = { diffs1: [], diffs2: [], totalDiffs: 0, additions: 0, deletions: 0 };
+  if (!page1 || !page2) return empty;
 
-  const scale = 1.0;
-  const vp1 = page1.getViewport({ scale });
-  const vp2 = page2.getViewport({ scale });
-
-  const width = Math.max(vp1.width, vp2.width);
-  const height = Math.max(vp1.height, vp2.height);
+  const baseViewport1 = page1.getViewport({ scale: 1 });
+  const baseViewport2 = page2.getViewport({ scale: 1 });
+  const largestPageSide = Math.max(
+    baseViewport1.width,
+    baseViewport1.height,
+    baseViewport2.width,
+    baseViewport2.height
+  );
+  const scale = Math.min(1.5, 1200 / largestPageSide);
+  const viewport1 = page1.getViewport({ scale });
+  const viewport2 = page2.getViewport({ scale });
+  const width = Math.ceil(Math.max(viewport1.width, viewport2.width));
+  const height = Math.ceil(Math.max(viewport1.height, viewport2.height));
+  const offset1 = { x: Math.floor((width - viewport1.width) / 2), y: Math.floor((height - viewport1.height) / 2) };
+  const offset2 = { x: Math.floor((width - viewport2.width) / 2), y: Math.floor((height - viewport2.height) / 2) };
 
   const canvas1 = document.createElement("canvas");
   canvas1.width = width;
   canvas1.height = height;
   const ctx1 = canvas1.getContext("2d", { willReadFrequently: true });
-
   const canvas2 = document.createElement("canvas");
   canvas2.width = width;
   canvas2.height = height;
   const ctx2 = canvas2.getContext("2d", { willReadFrequently: true });
-
-  if (!ctx1 || !ctx2) return { diffs1: [], diffs2: [] };
+  if (!ctx1 || !ctx2) return empty;
 
   ctx1.fillStyle = "#ffffff";
   ctx1.fillRect(0, 0, width, height);
   ctx2.fillStyle = "#ffffff";
   ctx2.fillRect(0, 0, width, height);
 
+  const renderCenteredPage = async (
+    page: PDFPageProxy,
+    targetContext: CanvasRenderingContext2D,
+    viewportWidth: number,
+    viewportHeight: number,
+    offset: { x: number; y: number }
+  ) => {
+    const pageCanvas = document.createElement("canvas");
+    pageCanvas.width = Math.ceil(viewportWidth);
+    pageCanvas.height = Math.ceil(viewportHeight);
+    const pageContext = pageCanvas.getContext("2d", { willReadFrequently: true });
+    if (!pageContext) throw new Error("Could not create a canvas to compare PDF pages.");
+    await page.render({ canvas: pageCanvas, canvasContext: pageContext, viewport: page.getViewport({ scale }) }).promise;
+    targetContext.drawImage(pageCanvas, offset.x, offset.y);
+    pageCanvas.width = 0;
+    pageCanvas.height = 0;
+  };
+
   await Promise.all([
-    page1.render({ canvas: canvas1, canvasContext: ctx1, viewport: vp1 }).promise,
-    page2.render({ canvas: canvas2, canvasContext: ctx2, viewport: vp2 }).promise,
+    renderCenteredPage(page1, ctx1, viewport1.width, viewport1.height, offset1),
+    renderCenteredPage(page2, ctx2, viewport2.width, viewport2.height, offset2),
   ]);
 
-  const imgData1 = ctx1.getImageData(0, 0, width, height).data;
-  const imgData2 = ctx2.getImageData(0, 0, width, height).data;
+  const data1 = ctx1.getImageData(0, 0, width, height).data;
+  const data2 = ctx2.getImageData(0, 0, width, height).data;
+  const alignment = estimateVisualAlignment(data1, data2, width, height);
+  const cellSize = 8;
+  const columns = Math.ceil(width / cellSize);
+  const rows = Math.ceil(height / cellSize);
+  const cellCount = columns * rows;
+  const activeCells = new Uint8Array(cellCount);
 
-  const blockSize = 16;
-  const rawDiffBoxes1: DiffBox[] = [];
-  const rawDiffBoxes2: DiffBox[] = [];
-  let diffId = 0;
+  for (let cellY = 0; cellY < rows; cellY++) {
+    const top = cellY * cellSize;
+    const bottom = Math.min(height, top + cellSize);
+    for (let cellX = 0; cellX < columns; cellX++) {
+      const left = cellX * cellSize;
+      const right = Math.min(width, left + cellSize);
+      const cellIndex = cellY * columns + cellX;
+      let changedPixels = 0;
+      let totalPixels = 0;
 
-  for (let y = 0; y < height; y += blockSize) {
-    for (let x = 0; x < width; x += blockSize) {
-      let diffPixels = 0;
-      let totalSamples = 0;
-      let doc1Brightness = 0;
-      let doc2Brightness = 0;
+      for (let y = top; y < bottom; y++) {
+        const y2 = y + alignment.y;
+        for (let x = left; x < right; x++) {
+          const x2 = x + alignment.x;
+          const index1 = (y * width + x) * 4;
+          const index2 = x2 >= 0 && x2 < width && y2 >= 0 && y2 < height
+            ? (y2 * width + x2) * 4
+            : -1;
+          const r2 = index2 < 0 ? 255 : data2[index2];
+          const g2 = index2 < 0 ? 255 : data2[index2 + 1];
+          const b2 = index2 < 0 ? 255 : data2[index2 + 2];
+          const luminance2 = index2 < 0 ? 255 : getLuminance(data2, index2);
+          const luminanceDifference = Math.abs(getLuminance(data1, index1) - luminance2);
+          const channelDifference =
+            Math.abs(data1[index1] - r2) +
+            Math.abs(data1[index1 + 1] - g2) +
+            Math.abs(data1[index1 + 2] - b2);
 
-      const step = 2;
-      for (let by = y; by < Math.min(y + blockSize, height); by += step) {
-        for (let bx = x; bx < Math.min(x + blockSize, width); bx += step) {
-          const idx = (by * width + bx) * 4;
-          const r1 = imgData1[idx];
-          const g1 = imgData1[idx + 1];
-          const b1 = imgData1[idx + 2];
-
-          const r2 = imgData2[idx];
-          const g2 = imgData2[idx + 1];
-          const b2 = imgData2[idx + 2];
-
-          const dR = Math.abs(r1 - r2);
-          const dG = Math.abs(g1 - g2);
-          const dB = Math.abs(b1 - b2);
-
-          const bright1 = (r1 + g1 + b1) / 3;
-          const bright2 = (r2 + g2 + b2) / 3;
-          doc1Brightness += bright1;
-          doc2Brightness += bright2;
-
-          if (dR + dG + dB > 60) {
-            diffPixels++;
-          }
-          totalSamples++;
+          if (luminanceDifference >= 28 || channelDifference >= 72) changedPixels++;
+          totalPixels++;
         }
       }
 
-      if (totalSamples > 0 && diffPixels / totalSamples > 0.15) {
-        const avg1 = doc1Brightness / totalSamples;
-        const avg2 = doc2Brightness / totalSamples;
-
-        const bxPct = (x / width) * 100;
-        const byPct = (y / height) * 100;
-        const bwPct = (Math.min(blockSize, width - x) / width) * 100;
-        const bhPct = (Math.min(blockSize, height - y) / height) * 100;
-
-        if (avg1 < avg2 - 20) {
-          rawDiffBoxes1.push({
-            id: `diff-del-${diffId++}`,
-            x: bxPct,
-            y: byPct,
-            width: bwPct,
-            height: bhPct,
-            type: "deleted",
-          });
-        } else if (avg2 < avg1 - 20) {
-          rawDiffBoxes2.push({
-            id: `diff-add-${diffId++}`,
-            x: bxPct,
-            y: byPct,
-            width: bwPct,
-            height: bhPct,
-            type: "added",
-          });
-        }
-      }
+      const minimumChangedPixels = Math.max(3, Math.ceil(totalPixels * 0.06));
+      if (totalPixels > 0 && changedPixels >= minimumChangedPixels) activeCells[cellIndex] = 1;
     }
   }
 
-  return {
-    diffs1: mergeLineBoxes(rawDiffBoxes1),
-    diffs2: mergeLineBoxes(rawDiffBoxes2),
-  };
-}
+  const visited = new Uint8Array(cellCount);
+  const diffs1: DiffBox[] = [];
+  const diffs2: DiffBox[] = [];
+  let totalDiffs = 0;
+  let additions = 0;
+  let deletions = 0;
+  let diffId = 0;
 
+  for (let start = 0; start < cellCount; start++) {
+    if (!activeCells[start] || visited[start]) continue;
+
+    const queue = [start];
+    visited[start] = 1;
+    let minCellX = columns;
+    let maxCellX = -1;
+    let minCellY = rows;
+    let maxCellY = -1;
+
+    for (let cursor = 0; cursor < queue.length; cursor++) {
+      const current = queue[cursor];
+      const cellX = current % columns;
+      const cellY = Math.floor(current / columns);
+      minCellX = Math.min(minCellX, cellX);
+      maxCellX = Math.max(maxCellX, cellX);
+      minCellY = Math.min(minCellY, cellY);
+      maxCellY = Math.max(maxCellY, cellY);
+      for (let neighborY = Math.max(0, cellY - 1); neighborY <= Math.min(rows - 1, cellY + 1); neighborY++) {
+        for (let neighborX = Math.max(0, cellX - 1); neighborX <= Math.min(columns - 1, cellX + 1); neighborX++) {
+          const neighbor = neighborY * columns + neighborX;
+          if (activeCells[neighbor] && !visited[neighbor]) {
+            visited[neighbor] = 1;
+            queue.push(neighbor);
+          }
+        }
+      }
+    }
+
+    const padding = 2;
+    const left = Math.max(0, minCellX * cellSize - padding);
+    const top = Math.max(0, minCellY * cellSize - padding);
+    const right = Math.min(width, (maxCellX + 1) * cellSize + padding);
+    const bottom = Math.min(height, (maxCellY + 1) * cellSize + padding);
+    let ink1 = 0;
+    let ink2 = 0;
+    let inkSamples = 0;
+
+    for (let y = top; y < bottom; y += 2) {
+      for (let x = left; x < right; x += 2) {
+        const x2 = x + alignment.x;
+        const y2 = y + alignment.y;
+        const index1 = (y * width + x) * 4;
+        const index2 = x2 >= 0 && x2 < width && y2 >= 0 && y2 < height
+          ? (y2 * width + x2) * 4
+          : -1;
+        ink1 += 255 - getLuminance(data1, index1);
+        ink2 += index2 < 0 ? 0 : 255 - getLuminance(data2, index2);
+        inkSamples++;
+      }
+    }
+
+    const inkDifference = ink2 / Math.max(1, inkSamples) - ink1 / Math.max(1, inkSamples);
+    const boxId = diffId++;
+    if (inkDifference > 14) {
+      const box = createVisualPageBox(left, top, right, bottom, { ...viewport2, offsetX: offset2.x, offsetY: offset2.y }, alignment.x, alignment.y, "added", `visual-add-${boxId}`);
+      if (box) diffs2.push(box);
+      if (box) { totalDiffs++; additions++; }
+    } else if (inkDifference < -14) {
+      const box = createVisualPageBox(left, top, right, bottom, { ...viewport1, offsetX: offset1.x, offsetY: offset1.y }, 0, 0, "deleted", `visual-del-${boxId}`);
+      if (box) diffs1.push(box);
+      if (box) { totalDiffs++; deletions++; }
+    } else {
+      const box1 = createVisualPageBox(left, top, right, bottom, { ...viewport1, offsetX: offset1.x, offsetY: offset1.y }, 0, 0, "modified", `visual-mod-old-${boxId}`);
+      const box2 = createVisualPageBox(left, top, right, bottom, { ...viewport2, offsetX: offset2.x, offsetY: offset2.y }, alignment.x, alignment.y, "modified", `visual-mod-new-${boxId}`);
+      if (box1) diffs1.push(box1);
+      if (box2) diffs2.push(box2);
+      if (box1 || box2) totalDiffs++;
+    }
+  }
+
+  return { diffs1, diffs2, totalDiffs, additions, deletions };
+}
 export async function comparePdfDocuments(
   file1: File,
   file2: File,
@@ -430,22 +602,27 @@ export async function comparePdfDocuments(
     let textDiffs: TextDiffToken[] = [];
     let diffsDoc1: DiffBox[] = [];
     let diffsDoc2: DiffBox[] = [];
+    let visualDiffCount: number | null = null;
 
     if (page1 && page2) {
       // 1. Extract words with bounding boxes from both pages
       const [w1, w2] = await Promise.all([extractPageWords(page1), extractPageWords(page2)]);
 
-      if (w1.length > 0 || w2.length > 0) {
+      if (w1.length >= MIN_WORDS_FOR_TEXT_DIFF && w2.length >= MIN_WORDS_FOR_TEXT_DIFF) {
         // High-precision text diffing with word bounding boxes
         const textDiffResult = computeTextDiff(w1, w2);
         diffsDoc1 = textDiffResult.diffs1;
         diffsDoc2 = textDiffResult.diffs2;
         textDiffs = textDiffResult.textDiffs;
       } else {
-        // Fallback for scanned PDFs without extractable text
+        // Compare rendered pixels when either page has no selectable text.
+        onProgress?.(progressPct, `Comparing scanned content on page ${p} of ${totalPages}...`);
         const visualDiff = await computeVisualDiffBoxes(page1, page2);
         diffsDoc1 = visualDiff.diffs1;
         diffsDoc2 = visualDiff.diffs2;
+        visualDiffCount = visualDiff.totalDiffs;
+        totalAdditions += visualDiff.additions;
+        totalDeletions += visualDiff.deletions;
       }
     } else if (page1 && !page2) {
       // Page deleted in Document 2
@@ -477,10 +654,12 @@ export async function comparePdfDocuments(
       textDiffs = [{ type: "added", text: "New page added to document." }];
     }
 
-    const pageDiffCount = diffsDoc1.length + diffsDoc2.length;
+    const pageDiffCount = visualDiffCount ?? diffsDoc1.length + diffsDoc2.length;
     totalDifferences += pageDiffCount;
-    totalDeletions += diffsDoc1.length;
-    totalAdditions += diffsDoc2.length;
+    if (visualDiffCount === null) {
+      totalDeletions += diffsDoc1.length;
+      totalAdditions += diffsDoc2.length;
+    }
 
     pages.push({
       pageNumber: p,
