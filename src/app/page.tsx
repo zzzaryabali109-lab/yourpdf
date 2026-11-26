@@ -86,9 +86,12 @@ export default function Home() {
       <main className="flex-1 flex flex-col items-center justify-start pt-6 sm:pt-12 pb-12 sm:pb-16 px-3 sm:px-4">
         {/* PDF Edit Heading Section */}
         <div className="text-center max-w-xl mx-auto mb-6 space-y-2">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
-            Edit PDF & Word
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-tight">
+            <span className="text-foreground">Edit </span>
+            <span className="bg-gradient-to-r from-pink-500 via-pink-400 to-rose-500 bg-clip-text text-transparent">PDF</span>
+            <span className="text-foreground"> &amp; Word</span>
           </h1>
+          <div className="mx-auto h-1 w-20 rounded-full bg-gradient-to-r from-pink-500 via-pink-400 to-rose-500" aria-hidden="true" />
           <p className="text-xs sm:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed">
             Upload your PDF or Word document (.docx, .doc) to edit text, annotate, organize pages, or convert files with ease — right in your browser.
           </p>
