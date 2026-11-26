@@ -1,13 +1,13 @@
 /**
  * local-ocr.ts
  *
- * Searchable-PDF OCR engine powered by PaddleOCR (via the local Python
- * RapidOCR worker). Preserves the original scanned page image exactly —
+ * Searchable-PDF OCR engine powered by the bundled local Tesseract process.
+ * Preserves the original scanned page image exactly —
  * only an invisible, accurately-positioned text layer is added.
  *
  * Architecture:
- *   Next.js (Node) → HTTP POST localhost:7331/ocr → Python RapidOCR worker
- *   Python worker returns per-page text boxes in rendered-image pixel coords.
+ *   Next.js (Node) → local Python/PDFium renderer → Tesseract TSV output
+ *   Python returns per-page text boxes in rendered-image pixel coords.
  *   This module maps those pixel coords to PDF point coords and embeds
  *   invisible text using pdf-lib.
  *
@@ -20,7 +20,7 @@ import {
   StandardFonts,
   rgb,
 } from "pdf-lib";
-import { callPaddleOcrWorker, type OcrPage } from "./paddle-ocr-client";
+import { runLocalOcrEngine, type OcrPage } from "./local-ocr-client";
 
 export type OcrEngineResult = {
   outputBytes: Buffer;
@@ -198,9 +198,11 @@ export async function processPdfOcr(
 
   // ── Fast-path: PDF already has native selectable text ────────────────────
   const nativeText      = await extractExistingNativeText(inputBytes);
-  const minTextThreshold = Math.max(40, totalPages * 20);
+  const everyPageHasNativeText =
+    nativeText.pageTexts.length === totalPages &&
+    nativeText.pageTexts.every((pageText) => pageText.trim().length >= 40);
 
-  if (nativeText.totalChars >= minTextThreshold) {
+  if (everyPageHasNativeText) {
     const allText = nativeText.pageTexts
       .map((t, idx) => (t ? `--- Page ${idx + 1} ---\n${t}` : ""))
       .filter(Boolean)
@@ -219,16 +221,19 @@ export async function processPdfOcr(
     };
   }
 
-  // ── Scanned-document path: call the PaddleOCR worker ─────────────────────
+  // ── Scanned-document path: use the bundled local OCR engine ──────────────
   const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  console.log(`[OCR] Sending ${totalPages}-page PDF to PaddleOCR worker (job ${jobId})`);
+  console.log(`[OCR] Running local OCR on ${totalPages} page(s) (job ${jobId})`);
 
   let ocrResponse;
   try {
-    ocrResponse = await callPaddleOcrWorker(inputBytes, jobId);
+    ocrResponse = await runLocalOcrEngine(inputBytes, jobId);
   } catch (err) {
-    console.error("[OCR] PaddleOCR worker call failed:", err);
-    throw err; // Let adobe-ocr.ts surface the error to the UI
+    console.error("[OCR] Local engine call failed:", err);
+    throw err;
+  }
+  if (ocrResponse.total_pages !== totalPages) {
+    throw new Error("The local OCR engine returned a different page count than the uploaded PDF.");
   }
 
   const helveticaFont = await doc.embedFont(StandardFonts.Helvetica);
@@ -240,13 +245,20 @@ export async function processPdfOcr(
     const pageIdx = ocrPage.page_num;
 
     if (ocrPage.error) {
-      console.error(`[OCR] Page ${pageIdx + 1} error from worker: ${ocrPage.error}`);
+      console.error(`[OCR] Page ${pageIdx + 1} failed in the local engine: ${ocrPage.error}`);
       onPageProgress?.(pageIdx + 1, totalPages);
       continue;
     }
 
     if (ocrPage.skipped) {
-      // Page already has native text — keep it as-is
+      // Page already has native text — keep it as-is and include it in the result.
+      const existingPageText =
+        (ocrPage.native_text ?? nativeText.pageTexts[pageIdx] ?? "").trim();
+      if (existingPageText) {
+        allRecognizedText +=
+          (allRecognizedText ? "\n\n" : "") + `--- Page ${pageIdx + 1} ---\n` + existingPageText;
+        totalCharacters += existingPageText.length;
+      }
       onPageProgress?.(pageIdx + 1, totalPages);
       continue;
     }
@@ -273,6 +285,12 @@ export async function processPdfOcr(
     console.warn(
       `[OCR] ${totalLowConf} low-confidence text box(es) across all pages. ` +
         "Review the OCR output for potential misreads.",
+    );
+  }
+
+  if (totalCharacters === 0 && nativeText.totalChars === 0) {
+    throw new Error(
+      "No text could be recognized in this PDF. Check that the scan is clear and its language is installed for OCR.",
     );
   }
 
