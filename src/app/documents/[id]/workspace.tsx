@@ -847,32 +847,41 @@ export default function Workspace({ documentId }: { documentId: string }) {
           const width = baseWidth * scale;
           const height = baseHeight * scale;
           const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
-          setRenderScale(scale);
-          setRenderSize({ width, height });
-          canvas.width = Math.floor(width * outputScale);
-          canvas.height = Math.floor(height * outputScale);
-          context.setTransform(1, 0, 0, 1, 0, 0);
-          context.fillStyle = "#fff";
-          context.fillRect(0, 0, canvas.width, canvas.height);
+          const offscreen = document.createElement("canvas");
+          offscreen.width = Math.floor(width * outputScale);
+          offscreen.height = Math.floor(height * outputScale);
+          const offscreenContext = offscreen.getContext("2d");
+          if (!offscreenContext) return;
+          offscreenContext.fillStyle = "#fff";
+          offscreenContext.fillRect(0, 0, offscreen.width, offscreen.height);
           if (blankPage.imageUrl) {
             try {
               const img = await decodeImage(blankPage.imageUrl);
               if (canceled) return;
               if (rotation % 360 !== 0) {
-                context.save();
-                context.translate(canvas.width / 2, canvas.height / 2);
-                context.rotate((rotation * Math.PI) / 180);
-                const drawW = rotated ? canvas.height : canvas.width;
-                const drawH = rotated ? canvas.width : canvas.height;
-                context.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-                context.restore();
+                offscreenContext.save();
+                offscreenContext.translate(offscreen.width / 2, offscreen.height / 2);
+                offscreenContext.rotate((rotation * Math.PI) / 180);
+                const drawW = rotated ? offscreen.height : offscreen.width;
+                const drawH = rotated ? offscreen.width : offscreen.height;
+                offscreenContext.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+                offscreenContext.restore();
               } else {
-                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                offscreenContext.drawImage(img, 0, 0, offscreen.width, offscreen.height);
               }
             } catch {
               // fallback remains plain white
             }
           }
+          if (canceled || !canvasRef.current) return;
+          const visibleCanvas = canvasRef.current;
+          const visibleContext = visibleCanvas.getContext("2d");
+          if (!visibleContext) return;
+          visibleCanvas.width = offscreen.width;
+          visibleCanvas.height = offscreen.height;
+          visibleContext.drawImage(offscreen, 0, 0);
+          setRenderScale(scale);
+          setRenderSize({ width, height });
           return;
         }
 
@@ -891,8 +900,6 @@ export default function Workspace({ documentId }: { documentId: string }) {
           : debouncedZoom;
         const scale = Math.max(0.25, fittedScale);
         const viewport = page.getViewport({ scale, rotation: pageRotation });
-        setRenderScale(scale);
-        setRenderSize({ width: viewport.width, height: viewport.height });
 
         // Cancel previous active render task if any
         if (activeRenderTaskRef.current) {
@@ -934,6 +941,8 @@ export default function Workspace({ documentId }: { documentId: string }) {
         canvas.width = offscreen.width;
         canvas.height = offscreen.height;
         context.drawImage(offscreen, 0, 0);
+        setRenderScale(scale);
+        setRenderSize({ width: viewport.width, height: viewport.height });
       } catch (reason: unknown) {
         const isCancelled =
           canceled ||
@@ -3203,7 +3212,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
                       height: renderSize.height || undefined,
                       transform: scaleRatio !== 1 ? `scale(${scaleRatio})` : undefined,
                       transformOrigin: "top center",
-                      transition: scaleRatio !== 1 ? "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+                      transition: scaleRatio !== 1 ? "transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)" : "none",
                     }}
                   >
                     <canvas ref={canvasRef} className={styles.pageCanvas} aria-label={`Page ${pageNumber} of ${totalPageCount}`} />
