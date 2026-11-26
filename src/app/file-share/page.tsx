@@ -133,7 +133,7 @@ export default function FileSharePage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SiteHeader />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-6 pt-6 pb-14 sm:pt-12 sm:pb-20 lg:px-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-6 pt-6 pb-24 sm:pt-12 sm:pb-32 lg:px-8">
         <div className="w-full max-w-2xl mx-auto space-y-6 sm:space-y-8">
           {/* Header Title Section */}
           <div className="text-center space-y-3">

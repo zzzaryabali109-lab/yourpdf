@@ -124,7 +124,8 @@
   }
   html {
     @apply font-sans;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
+    scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -259,21 +260,6 @@ dialog[open] {
 /* -------------------------------------------------------------------------- */
 /* Ultra-Smooth Scrollbar & Page Motion                                       */
 /* -------------------------------------------------------------------------- */
-
-@keyframes page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-main:not([data-no-enter-anim]) {
-  animation: page-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
 
 /* Custom Sleek Smooth Scrollbar */
 ::-webkit-scrollbar {
