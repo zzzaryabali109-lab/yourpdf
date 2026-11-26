@@ -8,7 +8,8 @@ import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/fil
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
 import { MergePdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
-import { CheckCircle2, Download, Layers, Pencil } from "lucide-react";
+import { ShareModalView } from "@/components/ui/share-modal-view";
+import { CheckCircle2, Download, Layers, Pencil, Share2 } from "lucide-react";
 import styles from "../home.module.css";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
@@ -28,6 +29,7 @@ export default function MergePdfPage() {
   const [mergedResult, setMergedResult] = useState<MergedResult | null>(null);
   const [customFileName, setCustomFileName] = useState("merged-document");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogView, setDialogView] = useState<"result" | "share">("result");
   const [mergeError, setMergeError] = useState<string | null>(null);
 
   const uploadFile: FileDropzoneUpload = (item, { onProgress }) =>
@@ -84,6 +86,7 @@ export default function MergePdfPage() {
 
   const handleReset = () => {
     setIsDialogOpen(false);
+    setDialogView("result");
     setSelectedFiles([]);
     setMergedResult(null);
     setCustomFileName("merged-document");
@@ -163,14 +166,36 @@ export default function MergePdfPage() {
       </main>
 
       {/* Merged Result Modal Popup */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setDialogView("result");
+        }}
+      >
         <DialogContent
-          title="PDFs Merged Successfully"
-          description="Your documents have been combined and are ready to download."
+          title={dialogView === "share" ? "Share Merged PDF" : "PDFs Merged Successfully"}
+          description={dialogView === "share" ? "Your merged PDF is ready to share with an instant link." : "Your documents have been combined and are ready to download."}
           className="sm:max-w-[440px]"
         >
           {mergedResult && (() => {
             const finalDownloadName = `${customFileName.trim().replace(/\.pdf$/i, "") || "merged-document"}.pdf`;
+            const downloadHref = `${mergedResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`;
+
+            if (dialogView === "share") {
+              return (
+                <ShareModalView
+                  filename={finalDownloadName}
+                  fileIcon={<PdfFileBadgeIcon className="size-11 shrink-0" />}
+                  fileSize={mergedResult.size}
+                  downloadHref={downloadHref}
+                  onBackToDownload={() => setDialogView("result")}
+                  onReset={handleReset}
+                  resetLabel="Merge Another Set of PDFs"
+                />
+              );
+            }
+
             return (
               <div className="space-y-4 pt-1">
                 {/* File details card */}
@@ -241,7 +266,7 @@ export default function MergePdfPage() {
                 {/* Actions: Download Button & Merge Another */}
                 <div className="space-y-2">
                   <a
-                    href={`${mergedResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`}
+                    href={downloadHref}
                     download={finalDownloadName}
                     className="block w-full no-underline"
                   >
@@ -250,14 +275,25 @@ export default function MergePdfPage() {
                       Download Merged PDF
                     </Button>
                   </a>
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    onClick={handleReset}
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Merge Another Set of PDFs
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={handleReset}
+                      className="flex-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Merge Another Set of PDFs
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setDialogView("share")}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Share2 className="size-3.5" />
+                      File Share
+                    </Button>
+                  </div>
                 </div>
               </div>
             );

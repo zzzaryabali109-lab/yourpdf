@@ -7,6 +7,7 @@ import {
   Download,
   FileCheck2,
   Pencil,
+  Share2,
   Sparkles,
 } from "lucide-react";
 import ActionButton from "@/components/arc/action-button/action-button";
@@ -16,6 +17,7 @@ import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/fil
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
 import { OcrPdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
+import { ShareModalView } from "@/components/ui/share-modal-view";
 import styles from "../home.module.css";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
@@ -53,6 +55,7 @@ export default function OcrPdfPage() {
   const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [customFileName, setCustomFileName] = useState("document-searchable");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogView, setDialogView] = useState<"result" | "share">("result");
   const [copiedText, setCopiedText] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
 
@@ -228,6 +231,7 @@ export default function OcrPdfPage() {
 
   const handleReset = () => {
     setIsDialogOpen(false);
+    setDialogView("result");
     setUploadedDocument(null);
     setOcrResult(null);
     setOcrError(null);
@@ -323,16 +327,38 @@ export default function OcrPdfPage() {
       </main>
 
       {/* OCR Result Modal Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setDialogView("result");
+        }}
+      >
         <DialogContent
-          title="OCR Processed Successfully"
-          description="Your document is now searchable, selectable, and copyable."
+          title={dialogView === "share" ? "Share Searchable PDF" : "OCR Processed Successfully"}
+          description={dialogView === "share" ? "Your searchable PDF is ready to share with an instant link." : "Your document is now searchable, selectable, and copyable."}
           className="sm:max-w-[480px]"
         >
           {ocrResult && (() => {
             const finalDownloadName = `${
               customFileName.trim().replace(/\.pdf$/i, "") || "document-searchable"
             }.pdf`;
+            const downloadHref = `${ocrResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`;
+
+            if (dialogView === "share") {
+              return (
+                <ShareModalView
+                  filename={finalDownloadName}
+                  fileIcon={<PdfFileBadgeIcon className="size-11 shrink-0" />}
+                  fileSize={ocrResult.ocrSize}
+                  downloadHref={downloadHref}
+                  onBackToDownload={() => setDialogView("result")}
+                  onReset={handleReset}
+                  resetLabel="OCR Another PDF"
+                />
+              );
+            }
+
             return (
               <div className="space-y-4 pt-1">
                 {/* File details card */}
@@ -428,7 +454,7 @@ export default function OcrPdfPage() {
                 {/* Actions: Download Button & OCR Another */}
                 <div className="space-y-2">
                   <a
-                    href={`${ocrResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`}
+                    href={downloadHref}
                     download={finalDownloadName}
                     className="block w-full no-underline"
                   >
@@ -441,14 +467,25 @@ export default function OcrPdfPage() {
                       Download Searchable PDF
                     </Button>
                   </a>
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    onClick={handleReset}
-                    className="w-full text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    OCR Another PDF
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={handleReset}
+                      className="flex-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      OCR Another PDF
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setDialogView("share")}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      <Share2 className="size-3.5" />
+                      File Share
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
