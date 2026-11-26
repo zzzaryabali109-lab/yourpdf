@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { NavigationMenuDemo } from "@/components/ui/demo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -96,6 +97,50 @@ const mobileSections: MobileDropdownSection[] = [
   },
 ];
 
+function YourPdfLogo({
+  className,
+  darkModeAware = true,
+}: {
+  className: string;
+  darkModeAware?: boolean;
+}) {
+  const imageClassName = `object-contain ${className}`;
+
+  if (!darkModeAware) {
+    return (
+      <Image
+        src="/yourpdf-logo-light.webp"
+        alt=""
+        width={1000}
+        height={276}
+        sizes="200px"
+        className={imageClassName}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Image
+        src="/yourpdf-logo-light.webp"
+        alt=""
+        width={1000}
+        height={276}
+        sizes="200px"
+        className={`dark:hidden ${imageClassName}`}
+      />
+      <Image
+        src="/yourpdf-logo-dark.webp"
+        alt=""
+        width={1000}
+        height={276}
+        sizes="200px"
+        className={`hidden dark:block ${imageClassName}`}
+      />
+    </>
+  );
+}
+
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -138,15 +183,7 @@ export function SiteHeader() {
           className="absolute left-4 sm:left-6 top-1/2 z-10 -translate-y-1/2 transition-opacity hover:opacity-90"
           aria-label="YourPDF home"
         >
-          <span
-            className="text-[3rem] font-bold italic leading-none tracking-[-0.07em] text-black dark:text-white transition-colors"
-            style={{
-              fontFamily: '"Brush Script MT", "Segoe Script", cursive',
-              WebkitTextStroke: "0.45px currentColor",
-            }}
-          >
-            YourPDF
-          </span>
+          <YourPdfLogo className="h-12 w-auto max-w-[200px]" />
         </Link>
         <NavigationMenuDemo />
         <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 flex items-center z-10">
@@ -170,17 +207,10 @@ export function SiteHeader() {
           <Link
             href="/"
             className="flex items-center transition-opacity hover:opacity-90 cursor-pointer"
+            aria-label="YourPDF home"
             onClick={() => setMobileOpen(false)}
           >
-            <span
-              className="text-[2.65rem] font-bold italic leading-none tracking-[-0.07em] text-black dark:text-white transition-colors"
-              style={{
-                fontFamily: '"Brush Script MT", "Segoe Script", cursive',
-                WebkitTextStroke: "0.45px currentColor",
-              }}
-            >
-              YourPDF
-            </span>
+            <YourPdfLogo className="h-10 w-auto max-w-[150px]" />
           </Link>
         </div>
 
@@ -213,17 +243,10 @@ export function SiteHeader() {
               <Link
                 href="/"
                 className="flex items-center transition-opacity hover:opacity-90 cursor-pointer"
+                aria-label="YourPDF home"
                 onClick={() => setMobileOpen(false)}
               >
-                <span
-                  className="text-[2.25rem] font-bold italic leading-none tracking-[-0.07em] text-black dark:text-white transition-colors"
-                  style={{
-                    fontFamily: '"Brush Script MT", "Segoe Script", cursive',
-                    WebkitTextStroke: "0.45px currentColor",
-                  }}
-                >
-                  YourPDF
-                </span>
+                <YourPdfLogo className="h-9 w-auto max-w-[135px]" darkModeAware={false} />
               </Link>
               <button
                 type="button"
