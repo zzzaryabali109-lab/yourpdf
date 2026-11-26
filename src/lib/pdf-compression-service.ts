@@ -175,7 +175,7 @@ async function compressWithLocalImageFilter(inputBytes: Buffer): Promise<Buffer 
         "-dColorImageDownsampleType=/Bicubic",
         "-dGrayImageDownsampleType=/Bicubic",
         "-dDownsampleMonoImages=true",
-        "-dMonoImageResolution=270",
+        `-dMonoImageResolution=${profile.dpi}`,
         "-dMonoImageDownsampleThreshold=1.0",
         `-sOutputFile=${outputPath}`,
         "-c",
