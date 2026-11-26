@@ -10,6 +10,7 @@ import {
   ProtectPdfDropzoneIcon,
   PdfFileBadgeIcon,
 } from "@/components/ui/convert-icons";
+import { ShareModalView } from "@/components/ui/share-modal-view";
 import {
   CheckCircle2,
   ChevronDown,
@@ -20,6 +21,7 @@ import {
   KeyRound,
   Lock,
   Pencil,
+  Share2,
   Shield,
   ShieldCheck,
   X,
@@ -89,9 +91,18 @@ export default function ProtectPdfPage() {
   // Result dialog state
   const [protectResult, setProtectResult] = useState<ProtectResult | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [successDialogView, setSuccessDialogView] = useState<"result" | "share">("result");
   const [customFileName, setCustomFileName] = useState("");
 
   const pwdStrength = useMemo(() => calculatePasswordStrength(password), [password]);
+  const finalProtectedName = (() => {
+    if (!protectResult) return "";
+    const name = customFileName.trim();
+    return name ? (name.endsWith(".pdf") ? name : `${name}.pdf`) : protectResult.filename;
+  })();
+  const protectedDownloadHref = protectResult
+    ? `${protectResult.downloadUrl}&name=${encodeURIComponent(finalProtectedName)}`
+    : "";
 
   const uploadFile: FileDropzoneUpload = (item, { onProgress }) =>
     new Promise((resolve, reject) => {
@@ -203,6 +214,7 @@ export default function ProtectPdfPage() {
 
   const handleReset = () => {
     setIsSuccessDialogOpen(false);
+    setSuccessDialogView("result");
     setIsPasswordModalOpen(false);
     setSelectedDoc(null);
     setPassword("");
@@ -518,12 +530,29 @@ export default function ProtectPdfPage() {
       </Dialog>
 
       {/* 2. SUCCESS / RESULT DIALOG */}
-      <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+      <Dialog
+        open={isSuccessDialogOpen}
+        onOpenChange={(open) => {
+          setIsSuccessDialogOpen(open);
+          if (!open) setSuccessDialogView("result");
+        }}
+      >
         <DialogContent
-          title="PDF Protected Successfully"
-          description="Your PDF is now securely encrypted with 256-bit AES standard protection."
+          title={successDialogView === "share" ? "Share Protected PDF" : "PDF Protected Successfully"}
+          description={successDialogView === "share" ? "Your protected PDF is ready to share with an instant link." : "Your PDF is now securely encrypted with 256-bit AES standard protection."}
           className="max-w-md w-full"
         >
+          {protectResult && (successDialogView === "share" ? (
+            <ShareModalView
+              filename={finalProtectedName}
+              fileIcon={<PdfFileBadgeIcon className="size-11 shrink-0" />}
+              fileSize={protectResult.outputSize}
+              downloadHref={protectedDownloadHref}
+              onBackToDownload={() => setSuccessDialogView("result")}
+              onReset={handleReset}
+              resetLabel="Protect Another PDF"
+            />
+          ) : (
           <div className="space-y-4 pt-1">
             {/* Success Check Banner */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400">
@@ -579,45 +608,47 @@ export default function ProtectPdfPage() {
                 <Button
                   variant="primary"
                   className="w-full h-10 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
-                  onClick={() => {
-                    const finalName = customFileName.trim()
-                      ? customFileName.trim().endsWith(".pdf")
-                        ? customFileName.trim()
-                        : `${customFileName.trim()}.pdf`
-                      : protectResult.filename;
-                    const url = `${protectResult.downloadUrl}&name=${encodeURIComponent(finalName)}`;
-                    downloadFile(url, finalName);
-                  }}
+                  onClick={() => downloadFile(protectedDownloadHref, finalProtectedName)}
                 >
                   <Download className="size-4" />
                   Download Protected PDF
                 </Button>
               )}
 
-              <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="flex items-center gap-2 pt-1">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                  className="flex-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                   onClick={handleReset}
                 >
                   Protect Another PDF
                 </Button>
-                {protectResult && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="text-xs cursor-pointer"
-                    onClick={() => {
-                      window.open(`/workspace?id=${protectResult.id}`, "_blank");
-                    }}
-                  >
-                    Open in Workspace
-                  </Button>
-                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs cursor-pointer"
+                  onClick={() => setSuccessDialogView("share")}
+                >
+                  <Share2 className="size-3.5" />
+                  File Share
+                </Button>
               </div>
+              {protectResult && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full text-xs cursor-pointer"
+                  onClick={() => {
+                    window.open(`/workspace?id=${protectResult.id}`, "_blank");
+                  }}
+                >
+                  Open in Workspace
+                </Button>
+              )}
             </div>
           </div>
+          ))}
         </DialogContent>
       </Dialog>
     </div>

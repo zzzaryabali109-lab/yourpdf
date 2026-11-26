@@ -11,7 +11,8 @@ import {
   UnlockPdfDropzoneIcon,
   PdfFileBadgeIcon,
 } from "@/components/ui/convert-icons";
-import { CheckCircle2, Download, Eye, EyeOff, KeyRound, Lock, Pencil, ShieldCheck, X } from "lucide-react";
+import { ShareModalView } from "@/components/ui/share-modal-view";
+import { CheckCircle2, Download, Eye, EyeOff, KeyRound, Lock, Pencil, Share2, ShieldCheck, X } from "lucide-react";
 import styles from "../home.module.css";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -41,6 +42,7 @@ export default function UnlockPdfPage() {
   const [unlockResult, setUnlockResult] = useState<UnlockResult | null>(null);
   const [customFileName, setCustomFileName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogView, setDialogView] = useState<"result" | "share">("result");
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const uploadFile: FileDropzoneUpload = (item, { onProgress }) =>
@@ -125,6 +127,7 @@ export default function UnlockPdfPage() {
 
   const handleReset = () => {
     setIsDialogOpen(false);
+    setDialogView("result");
     setSelectedDoc(null);
     setPassword("");
     setPasswordRequired(false);
@@ -287,10 +290,16 @@ export default function UnlockPdfPage() {
       </main>
 
       {/* Result Dialog Modal Popup */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setDialogView("result");
+        }}
+      >
         <DialogContent
-          title="PDF Unlocked Successfully"
-          description="Your file is now completely decrypted and restriction-free."
+          title={dialogView === "share" ? "Share Unlocked PDF" : "PDF Unlocked Successfully"}
+          description={dialogView === "share" ? "Your unlocked PDF is ready to share with an instant link." : "Your file is now completely decrypted and restriction-free."}
           className="sm:max-w-[440px]"
         >
           {unlockResult && (() => {
@@ -298,6 +307,20 @@ export default function UnlockPdfPage() {
             const downloadHref = unlockResult.downloadUrl
               ? `${unlockResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`
               : `/api/documents/${unlockResult.id}/file?download=1&name=${encodeURIComponent(finalDownloadName)}`;
+
+            if (dialogView === "share") {
+              return (
+                <ShareModalView
+                  filename={finalDownloadName}
+                  fileIcon={<PdfFileBadgeIcon className="size-11 shrink-0" />}
+                  fileSize={unlockResult.outputSize}
+                  downloadHref={downloadHref}
+                  onBackToDownload={() => setDialogView("result")}
+                  onReset={handleReset}
+                  resetLabel="Unlock Another PDF"
+                />
+              );
+            }
 
             return (
               <div className="space-y-4 pt-1">
@@ -389,14 +412,25 @@ export default function UnlockPdfPage() {
                       Edit in Workspace
                     </Button>
                   </a>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full h-9 justify-center text-xs text-muted-foreground hover:text-foreground rounded-xl"
-                    onClick={handleReset}
-                  >
-                    Unlock Another PDF
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="flex-1 h-9 justify-center text-xs text-muted-foreground hover:text-foreground rounded-xl"
+                      onClick={handleReset}
+                    >
+                      Unlock Another PDF
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="flex-1 h-9 justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground rounded-xl"
+                      onClick={() => setDialogView("share")}
+                    >
+                      <Share2 className="size-3.5" />
+                      File Share
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
