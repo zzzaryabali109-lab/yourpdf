@@ -1469,6 +1469,63 @@ export default function Workspace({ documentId }: { documentId: string }) {
     return id;
   };
 
+  const applyMarkupToSelectedText = (kind: "highlight" | "erase") => {
+    const selection = window.getSelection();
+    const surface = pageSurfaceRef.current;
+    if (!selection || selection.isCollapsed || !surface) {
+      setSearchMessage("Select text on the page first.");
+      return;
+    }
+
+    const sourceRange = selection.getRangeAt(0);
+    const surfaceBounds = surface.getBoundingClientRect();
+    const currentScale = scaleRatio > 0 ? scaleRatio : 1;
+    const textSpans = Array.from(surface.querySelectorAll<HTMLElement>("[data-pdf-text-run]"));
+    const rects: PdfRect[] = [];
+
+    for (const span of textSpans) {
+      const textNode = span.firstChild;
+      if (!textNode || textNode.nodeType !== Node.TEXT_NODE || !sourceRange.intersectsNode(textNode)) continue;
+      const spanRange = document.createRange();
+      spanRange.selectNodeContents(textNode);
+      const selectedRange = document.createRange();
+      if (sourceRange.compareBoundaryPoints(Range.START_TO_START, spanRange) > 0) {
+        selectedRange.setStart(sourceRange.startContainer, sourceRange.startOffset);
+      } else {
+        selectedRange.setStart(textNode, 0);
+      }
+      if (sourceRange.compareBoundaryPoints(Range.END_TO_END, spanRange) < 0) {
+        selectedRange.setEnd(sourceRange.endContainer, sourceRange.endOffset);
+      } else {
+        selectedRange.setEnd(textNode, textNode.textContent?.length ?? 0);
+      }
+
+      for (const clientRect of Array.from(selectedRange.getClientRects())) {
+        if (clientRect.width < 1 || clientRect.height < 1) continue;
+        const screenRect = {
+          left: (clientRect.left - surfaceBounds.left) / currentScale,
+          top: (clientRect.top - surfaceBounds.top) / currentScale,
+          width: clientRect.width / currentScale,
+          height: clientRect.height / currentScale,
+        };
+        const rect = screenRectToPdf(screenRect, pageTransformRef.current, renderScale);
+        if (rect.width > 0 && rect.height > 0) rects.push(rect);
+      }
+    }
+
+    selection.removeAllRanges();
+    if (!rects.length) {
+      setSearchMessage("Select text on the page first. Scanned pages need OCR before text can be selected.");
+      return;
+    }
+
+    pushHistory({ edits, markups: documentMarkups, addedBlankPages });
+    const next = [...documentMarkups, ...rects.map((rect) => ({ id: crypto.randomUUID(), pageNumber, kind, rect }))];
+    saveMarkups(next);
+    setSelectedMarkupId(null);
+    setSearchMessage(`${kind === "highlight" ? "Selected text highlighted" : "Selected text erased"}. Download the edited PDF to keep it.`);
+  };
+
   const activateTool = (tool: WorkspaceTool) => {
     if (editingKey) commitInlineEdit();
     setActiveTool(tool);
@@ -1479,11 +1536,13 @@ export default function Workspace({ documentId }: { documentId: string }) {
     if (tool === "editText") setEditNotice(textRuns.length ? "Click text on the page to replace it." : "Scanned page: drag around text to set replacement bounds.");
     else if (tool === "editImage") setSearchMessage("Drag around an image on the page, then choose its replacement image.");
     else if (tool === "addText") setSearchMessage("Click on the page where the new text should start.");
-    else if (tool === "highlight") setSearchMessage("Drag over text to highlight it.");
+    else if (tool === "highlight") setSearchMessage(textRuns.length ? "Select text on the page to highlight it." : "No selectable text on this page. Run OCR first for scanned pages.");
     else if (tool === "comment") setSearchMessage("Click on the page to add a comment.");
     else if (tool === "shape") setSearchMessage(`Drag to draw a ${shapeKind}. Choose another shape from the shape menu.`);
     else if (tool === "signature") setSearchMessage("Draw a signature, then drag to place it on the page.");
-    else if (tool === "redact") setSearchMessage(redactKind === "redact" ? "Drag over content to permanently redact it in the exported copy." : "Drag over content to erase it in the exported copy.");
+    else if (tool === "redact") setSearchMessage(redactKind === "redact"
+      ? "Drag over content to permanently redact it in the exported copy."
+      : textRuns.length ? "Select text on the page to erase it." : "No selectable text on this page. Run OCR first for scanned pages.");
     else setSearchMessage("");
   };
 
@@ -2540,6 +2599,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
   const pageEdits = Object.values(edits).filter((edit) => edit.pageNumber === pageNumber);
   const pageHasEdits = pageEdits.length > 0;
   const pageHasMarkups = pageMarkups.length > 0;
+  const textMarkupSelectionMode = activeTool === "highlight" || (activeTool === "redact" && redactKind === "erase");
   const hasPendingWorkspaceChanges = Object.values(edits).some((edit) => edit.manual || edit.value !== edit.text)
     || Boolean(editingKey && draftRun && (draftRun.manual || draftText !== draftRun.text))
     || documentMarkups.length > 0
@@ -2676,7 +2736,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
           <div className={styles.toolMenuWrap}>
             <Button variant="ghost" size="sm" className={`${styles.toolIconButton} ${activeTool === "redact" ? styles.toolIconButtonActive : ""}`} aria-pressed={activeTool === "redact"} aria-label="Erase or permanently redact page content" title="Erase / Redact" aria-expanded={redactMenuOpen} onClick={() => { setRedactMenuOpen((open) => !open); setShapeMenuOpen(false); setWatermarkMenuOpen(false); }}><Eraser size={17} aria-hidden="true" /></Button>
             {redactMenuOpen && <div className={styles.toolPopover} role="group" aria-label="Erase and redaction modes">
-              <Button variant="ghost" size="sm" className={styles.toolIconButton} aria-label="Erase selected area" title="Erase area" onClick={() => { setRedactKind("erase"); setRedactMenuOpen(false); activateTool("redact"); }}><Eraser size={17} aria-hidden="true" /></Button>
+              <Button variant="ghost" size="sm" className={styles.toolIconButton} aria-label="Erase selected text" title="Erase selected text" onClick={() => { setRedactKind("erase"); setRedactMenuOpen(false); activateTool("redact"); }}><Eraser size={17} aria-hidden="true" /></Button>
               <Button variant="ghost" size="sm" className={styles.toolIconButton} aria-label="Permanently redact selected area" title="Permanent redaction" onClick={() => { setRedactKind("redact"); setRedactMenuOpen(false); activateTool("redact"); }}><Square size={17} aria-hidden="true" /></Button>
             </div>}
           </div>
@@ -3212,9 +3272,15 @@ export default function Workspace({ documentId }: { documentId: string }) {
                     height: renderSize.height ? Math.floor(renderSize.height * scaleRatio) : undefined,
                   }}
                 >
-                  <div
-                    ref={pageSurfaceRef}
-                    className={styles.pageSurface}
+            <div
+              ref={pageSurfaceRef}
+              className={styles.pageSurface}
+              onMouseUp={() => {
+                window.requestAnimationFrame(() => {
+                  if (activeTool === "highlight") applyMarkupToSelectedText("highlight");
+                  else if (activeTool === "redact" && redactKind === "erase") applyMarkupToSelectedText("erase");
+                });
+              }}
                     style={{
                       width: renderSize.width || undefined,
                       height: renderSize.height || undefined,
@@ -3264,11 +3330,15 @@ export default function Workspace({ documentId }: { documentId: string }) {
                           ) : null}
                         </div>
                       ))}
-                    {!editMode && !pageHasEdits && activeTool === "select" && textRuns.length > 0 && (
-                      <div className={styles.textSelectionLayer} aria-hidden="true">
+                    {!editMode && !pageHasEdits && (activeTool === "select" || textMarkupSelectionMode) && textRuns.length > 0 && (
+                      <div
+                        className={`${styles.textSelectionLayer} ${textMarkupSelectionMode ? styles.textSelectionLayerActive : ""}`}
+                        aria-hidden="true"
+                      >
                         {textRuns.map((run) => (
                           <span
                             key={run.key}
+                            data-pdf-text-run
                             className={styles.selectableText}
                             style={{
                               left: run.left * renderScale,
@@ -3329,7 +3399,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
                       </div>
                     )}
                     {(pageHasMarkups || detectedImages.length > 0 || !["select", "editText"].includes(activeTool)) && <div
-                      className={`${styles.markupLayer} ${!["select", "editText"].includes(activeTool) ? styles.markupLayerActive : ""}`}
+                      className={`${styles.markupLayer} ${!["select", "editText"].includes(activeTool) && !textMarkupSelectionMode ? styles.markupLayerActive : ""}`}
                       aria-label="PDF annotations"
                       onPointerDown={onMarkupPointerDown}
                       onPointerMove={(event) => { onMarkupPointerMove(event); onMarkupTransformMove(event); }}
