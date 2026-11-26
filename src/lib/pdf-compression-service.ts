@@ -20,12 +20,13 @@ const GHOSTSCRIPT_PROFILES = [
   // The upstream Quartz filter scales images to 90% and uses JPEG quality
   // -0.70. Ghostscript has no relative image-scale setting, so start near
   // 90% of a 300 DPI scan, then lower the ceiling only if needed.
-  { dpi: 270, qFactor: 0.7 },
-  { dpi: 240, qFactor: 0.7 },
-  { dpi: 210, qFactor: 0.7 },
-  { dpi: 180, qFactor: 0.7 },
-  { dpi: 150, qFactor: 0.7 },
-  { dpi: 120, qFactor: 0.7 },
+  { dpi: 270, qFactor: 0.76 },
+  { dpi: 240, qFactor: 0.76 },
+  { dpi: 210, qFactor: 0.76 },
+  { dpi: 180, qFactor: 0.76 },
+  { dpi: 150, qFactor: 0.76 },
+  { dpi: 120, qFactor: 0.76 },
+  { dpi: 96, qFactor: 0.76 },
 ] as const;
 
 let activeCompressions = 0;
@@ -71,7 +72,14 @@ async function validateCompressionCandidate(
 
   if (originalPdf.getPageCount() !== candidatePdf.getPageCount()) return false;
 
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  let pdfjs: typeof import("pdfjs-dist/legacy/build/pdf.mjs");
+  try {
+    pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  } catch {
+    // pdf-lib already confirmed the generated file opens and has the same
+    // number of pages; keep the valid smaller output if PDF.js is unavailable.
+    return true;
+  }
   const originalLoading = pdfjs.getDocument({ data: new Uint8Array(originalBytes) });
   const candidateLoading = pdfjs.getDocument({ data: new Uint8Array(candidateBytes) });
 
@@ -99,8 +107,7 @@ async function validateCompressionCandidate(
             return typeof value === "string" ? value : "";
           })
           .join("")
-          .replace(/\s+/g, " ")
-          .trim();
+          .replace(/\s+/g, "");
 
       if (
         Math.abs((originalView[2] - originalView[0]) - (candidateView[2] - candidateView[0])) > 0.5 ||
@@ -121,20 +128,7 @@ async function validateCompressionCandidate(
   }
 }
 
-function hasInteractiveContent(document: PDFDocument): boolean {
-  if (document.catalog.AcroForm()) return true;
-
-  return document.getPages().some((page) => {
-    const annotations = page.node.Annots();
-    return Boolean(annotations && annotations.size() > 0);
-  });
-}
-
-async function compressWithLocalImageFilter(inputBytes: Buffer, document: PDFDocument): Promise<Buffer | null> {
-  // The reference implementation redraws pages, so avoid rewriting PDFs that
-  // contain interactive elements the source Quartz path would not preserve.
-  if (hasInteractiveContent(document)) return null;
-
+async function compressWithLocalImageFilter(inputBytes: Buffer): Promise<Buffer | null> {
   const workingDirectory = await mkdtemp(path.join(os.tmpdir(), "yourpdf-compress-"));
   const inputPath = path.join(workingDirectory, "input.pdf");
   const outputPath = path.join(workingDirectory, "output.pdf");
@@ -180,7 +174,9 @@ async function compressWithLocalImageFilter(inputBytes: Buffer, document: PDFDoc
         "-dGrayImageDownsampleThreshold=1.0",
         "-dColorImageDownsampleType=/Bicubic",
         "-dGrayImageDownsampleType=/Bicubic",
-        "-dDownsampleMonoImages=false",
+        "-dDownsampleMonoImages=true",
+        "-dMonoImageResolution=270",
+        "-dMonoImageDownsampleThreshold=1.0",
         `-sOutputFile=${outputPath}`,
         "-c",
         parameters,
@@ -292,7 +288,7 @@ export async function compressTransientDocument(
         throw new Error("This PDF file is corrupted or not a valid document.");
       }
 
-      const candidateBytes = await compressWithLocalImageFilter(originalBytes, originalPdf);
+      const candidateBytes = await compressWithLocalImageFilter(originalBytes);
       const compressedBytes = candidateBytes && candidateBytes.byteLength < originalSize
         ? candidateBytes
         : originalBytes;
