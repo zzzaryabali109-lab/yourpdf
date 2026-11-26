@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getSharedFile, incrementDownloadCount } from "@/lib/share-storage";
+import { deleteSharedFile, getSharedFile, incrementDownloadCount, openSharedFile, sharedFileExists } from "@/lib/share-storage";
+
+export const runtime = "nodejs";
 
 export async function GET(
   request: Request,
@@ -16,12 +18,20 @@ export async function GET(
       );
     }
 
+    if (!(await sharedFileExists(record.filePath))) {
+      deleteSharedFile(id);
+      return NextResponse.json(
+        { error: "This shared file does not exist or has expired." },
+        { status: 404 },
+      );
+    }
+
     incrementDownloadCount(id);
 
     // Encode filename for Content-Disposition (RFC 5987 standard)
     const encodedFilename = encodeURIComponent(record.filename).replace(/['()]/g, escape).replace(/\*/g, "%2A");
 
-    return new Response(new Uint8Array(record.data), {
+    return new Response(openSharedFile(record.filePath), {
       status: 200,
       headers: {
         "Content-Type": record.mimeType,

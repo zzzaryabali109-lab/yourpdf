@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
+import { useEffect, useRef, useState } from "react";
 import ActionButton from "@/components/arc/action-button/action-button";
 import Button from "@/components/arc/button/button";
 import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
@@ -12,6 +13,7 @@ import { CheckCircle2, Download, Layers, Pencil, X, Share2, Copy, Check, Externa
 import styles from "../home.module.css";
 
 const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100 MB
+const MAX_TOTAL_IMAGE_SIZE = 100 * 1024 * 1024; // Keep multi-image conversion within the app's memory budget.
 
 type SelectedImageItem = {
   id: string;
@@ -30,6 +32,7 @@ type ConversionResult = {
 
 export default function JpgToPdfPage() {
   const [selectedImages, setSelectedImages] = useState<SelectedImageItem[]>([]);
+  const previewUrlsRef = useRef(new Set<string>());
   const [converting, setConverting] = useState(false);
   const [conversionResult, setConversionResult] = useState<ConversionResult | null>(null);
   const [customFileName, setCustomFileName] = useState("");
@@ -42,6 +45,11 @@ export default function JpgToPdfPage() {
   const [copiedShare, setCopiedShare] = useState(false);
   const [currentShareName, setCurrentShareName] = useState("");
   const [currentShareHref, setCurrentShareHref] = useState("");
+
+  useEffect(() => () => {
+    for (const url of previewUrlsRef.current) URL.revokeObjectURL(url);
+    previewUrlsRef.current.clear();
+  }, []);
 
   const uploadFile: FileDropzoneUpload = (item, { onProgress }) =>
     new Promise((resolve, reject) => {
@@ -70,6 +78,7 @@ export default function JpgToPdfPage() {
 
       onProgress(50);
       const previewUrl = URL.createObjectURL(item.file);
+      previewUrlsRef.current.add(previewUrl);
       const newItem: SelectedImageItem = {
         id: `${item.file.name}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         file: item.file,
@@ -84,7 +93,10 @@ export default function JpgToPdfPage() {
   const removeImage = (idToRemove: string) => {
     setSelectedImages((prev) => {
       const target = prev.find((i) => i.id === idToRemove);
-      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+        previewUrlsRef.current.delete(target.previewUrl);
+      }
       return prev.filter((i) => i.id !== idToRemove);
     });
     setConvertError(null);
@@ -126,7 +138,10 @@ export default function JpgToPdfPage() {
 
   const handleReset = () => {
     for (const item of selectedImages) {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+        previewUrlsRef.current.delete(item.previewUrl);
+      }
     }
     setIsDialogOpen(false);
     setDialogView("result");
@@ -230,10 +245,11 @@ export default function JpgToPdfPage() {
             multiple={true}
             maxFiles={50}
             maxSize={MAX_IMAGE_SIZE}
+            maxTotalSize={MAX_TOTAL_IMAGE_SIZE}
             icon={<JpgToPdfImageIcon className="w-20 h-20 object-contain sm:w-28 sm:h-28" />}
             label="Drop your JPG or image files here"
             description="or click to browse multiple images from your device"
-            note="JPG, JPEG, PNG, WebP · Up to 50 images · 100 MB each"
+            note="JPG, JPEG, PNG, WebP · Up to 50 images · 100 MB total"
             dropLabel="Release to add images to convert"
             onUpload={uploadFile}
             onFilesChange={(files) => {

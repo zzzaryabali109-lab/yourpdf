@@ -34,13 +34,14 @@ export default function Home() {
       const request = new XMLHttpRequest();
       request.open("POST", "/api/documents");
       request.responseType = "json";
-      request.timeout = 180_000;
+      request.timeout = 300_000;
 
       const removeAbortListener = () => signal.removeEventListener("abort", abortRequest);
       const abortRequest = () => request.abort();
 
       request.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress((event.loaded / event.total) * 100);
+        // Leave the final progress slice for server-side validation/storage.
+        if (event.lengthComputable) onProgress(Math.min(95, (event.loaded / event.total) * 95));
       };
       request.onload = () => {
         removeAbortListener();

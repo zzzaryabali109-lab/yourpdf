@@ -3,8 +3,12 @@ import { PDFDocument } from "pdf-lib";
 import { randomUUID } from "node:crypto";
 import { isSameOriginRequest, consumeRateLimit } from "@/lib/request-guards";
 import { createTransientDocument } from "@/lib/storage";
+import { MultipartTooLargeError, parseMultipartWithinLimit } from "@/lib/limited-form-data";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
+const MAX_TOTAL_MERGE_SIZE = 100 * 1024 * 1024;
+const MAX_MULTIPART_SIZE = MAX_TOTAL_MERGE_SIZE + 1024 * 1024;
+const MAX_MERGE_FILES = 20;
 const MERGE_RATE_LIMIT = 20;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
@@ -30,13 +34,32 @@ export async function POST(request: Request) {
   }
 
   try {
-    const formData = await request.formData();
+    const formData = await parseMultipartWithinLimit(
+      request,
+      MAX_MULTIPART_SIZE,
+      "Selected PDFs must be 100 MB or smaller in total.",
+    );
     const files = formData.getAll("files");
 
     if (!files || files.length < 2) {
       return NextResponse.json(
         { error: "Please select at least 2 PDF files to merge." },
         { status: 400 },
+      );
+    }
+
+    if (files.length > MAX_MERGE_FILES) {
+      return NextResponse.json(
+        { error: `You can merge up to ${MAX_MERGE_FILES} PDF files at once.` },
+        { status: 400 },
+      );
+    }
+
+    const totalUploadSize = files.reduce((total, item) => total + (item instanceof Blob ? item.size : 0), 0);
+    if (totalUploadSize > MAX_TOTAL_MERGE_SIZE) {
+      return NextResponse.json(
+        { error: "Selected PDFs must be 100 MB or smaller in total." },
+        { status: 413 },
       );
     }
 
@@ -121,6 +144,9 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("PDF merge failed:", error);
+    if (error instanceof MultipartTooLargeError) {
+      return NextResponse.json({ error: error.message }, { status: 413, headers: { "Cache-Control": "no-store" } });
+    }
     const message = error instanceof Error ? error.message : "Merging PDFs failed. Please retry.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

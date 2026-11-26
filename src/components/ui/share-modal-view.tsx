@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import Button from "@/components/arc/button/button";
 import { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import { RealFileBadge } from "@/components/ui/real-file-badge";
@@ -42,11 +43,15 @@ export function ShareModalView({
 
   useEffect(() => {
     let isCancelled = false;
+    const controller = new AbortController();
+    const requestTimeout = window.setTimeout(() => {
+      controller.abort(new DOMException("The request timed out.", "TimeoutError"));
+    }, 5 * 60 * 1000);
 
     async function runUpload() {
       try {
         // Fetch file blob from downloadHref
-        const res = await fetch(downloadHref);
+        const res = await fetch(downloadHref, { signal: controller.signal });
         if (!res.ok) {
           throw new Error("Could not read the converted file for sharing.");
         }
@@ -72,6 +77,7 @@ export function ShareModalView({
         const uploadRes = await fetch("/api/share", {
           method: "POST",
           body: formData,
+          signal: controller.signal,
         });
 
         const data = await uploadRes.json();
@@ -96,6 +102,7 @@ export function ShareModalView({
         const msg = err instanceof Error ? err.message : "Failed to create share link.";
         setError(msg);
       } finally {
+        window.clearTimeout(requestTimeout);
         if (!isCancelled) {
           setLoading(false);
         }
@@ -106,6 +113,8 @@ export function ShareModalView({
 
     return () => {
       isCancelled = true;
+      window.clearTimeout(requestTimeout);
+      controller.abort();
     };
   }, [downloadHref, filename, retryCount]);
 

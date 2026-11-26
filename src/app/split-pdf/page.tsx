@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Download, Layers, RotateCcw, Scissors, Share2, Trash2, X } from "lucide-react";
 import ActionButton from "@/components/arc/action-button/action-button";

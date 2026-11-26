@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import { useState } from "react";
 import ActionButton from "@/components/arc/action-button/action-button";
 import Button from "@/components/arc/button/button";

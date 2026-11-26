@@ -53,6 +53,12 @@ type TransientRegistry = typeof globalThis & {
 const registry = globalThis as TransientRegistry;
 const documents = registry.__clearpdfTransientDocuments ??= new Map<string, TransientDocument>();
 
+function retainBytes(bytes: Uint8Array) {
+  // Buffers entering this store are freshly produced by upload/conversion routes, so
+  // retaining them avoids a second full-file copy under memory-constrained hosting.
+  return Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+}
+
 function storedBytes() {
   let total = 0;
   for (const document of documents.values()) {
@@ -89,8 +95,8 @@ export function createTransientDocument(
 
   documents.set(metadata.id, {
     metadata,
-    original: Buffer.from(originalBytes),
-    sourceDocx: sourceDocxBytes ? Buffer.from(sourceDocxBytes) : undefined,
+    original: retainBytes(originalBytes),
+    sourceDocx: sourceDocxBytes ? retainBytes(sourceDocxBytes) : undefined,
     status: { status: "not_started" },
     processing: false,
     lastAccessedAt: Date.now(),
@@ -112,7 +118,7 @@ export function getSourceDocx(id: string) {
 export function setSourceDocx(id: string, docxBytes: Uint8Array) {
   const document = getTransientDocument(id);
   if (!document) return;
-  document.sourceDocx = Buffer.from(docxBytes);
+  document.sourceDocx = retainBytes(docxBytes);
   document.lastAccessedAt = Date.now();
 }
 
@@ -127,7 +133,7 @@ export function saveCleanPdf(id: string, cleanBytes: Uint8Array) {
   if (storedBytes() - previousSize + cleanBytes.byteLength > MAX_MEMORY_BYTES) {
     throw new Error("Temporary document memory is full. Download or close another document first.");
   }
-  document.clean = Buffer.from(cleanBytes);
+  document.clean = retainBytes(cleanBytes);
   document.lastAccessedAt = Date.now();
 }
 
@@ -145,7 +151,7 @@ export function saveCompressedPdf(id: string, compressedBytes: Uint8Array, stats
   if (storedBytes() - previousSize + compressedBytes.byteLength > MAX_MEMORY_BYTES) {
     throw new Error("Temporary document memory is full. Download or close another document first.");
   }
-  document.compressed = Buffer.from(compressedBytes);
+  document.compressed = retainBytes(compressedBytes);
   document.compressionStats = stats;
   document.lastAccessedAt = Date.now();
 }

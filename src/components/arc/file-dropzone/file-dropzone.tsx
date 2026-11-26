@@ -24,6 +24,8 @@ export type FileDropzoneProps = {
   onUpload?: FileDropzoneUpload;
   /** Files above this many bytes fail with a size reason and never upload. */
   maxSize?: number;
+  /** Prevents selections whose combined file size would exceed this many bytes. */
+  maxTotalSize?: number;
   /** Render the file list under the drop target or inside its edge. */
   listPlacement?: "below" | "inside";
   /** Replaces the small line under the description. */
@@ -231,7 +233,7 @@ function FileRow({ item, reduce, delay, fresh, canRetry, onRemove, onRetry, remo
   </motion.li>;
 }
 
-export function FileDropzone({ accept, multiple = true, maxFiles = 5, onFilesChange, label = "Add files", description = "Drop files here or choose from your device", defaultItems, onUpload, maxSize, listPlacement = "below", note, dropLabel, compactAt, className, borderless = false, icon }: FileDropzoneProps) {
+export function FileDropzone({ accept, multiple = true, maxFiles = 5, onFilesChange, label = "Add files", description = "Drop files here or choose from your device", defaultItems, onUpload, maxSize, maxTotalSize, listPlacement = "below", note, dropLabel, compactAt, className, borderless = false, icon }: FileDropzoneProps) {
   const [items, setItems] = useState<FileDropzoneItem[]>(() => defaultItems ?? []);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
@@ -349,7 +351,18 @@ export function FileDropzone({ accept, multiple = true, maxFiles = 5, onFilesCha
     const same = (a: File, b: File) => a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
     const fresh = matching.filter((file, index) => matching.findIndex(other => same(other, file)) === index && !kept.some(item => item.file && same(item.file, file)));
     const room = multiple ? Math.max(0, maxFiles - kept.length) : 1;
-    const added = fresh.slice(0, room).map((file): FileDropzoneItem => {
+    const withinTotalSize: File[] = [];
+    let selectedBytes = kept.reduce((total, item) => total + (item.file?.size ?? 0), 0);
+    let totalSizeOverflow = false;
+    for (const file of fresh.slice(0, room)) {
+      if (maxTotalSize !== undefined && selectedBytes + file.size > maxTotalSize) {
+        totalSizeOverflow = true;
+        continue;
+      }
+      selectedBytes += file.size;
+      withinTotalSize.push(file);
+    }
+    const added = withinTotalSize.map((file): FileDropzoneItem => {
       const tooLarge = maxSize !== undefined && file.size > maxSize;
       const id = `${file.name}-${file.size}-${file.lastModified}-${nextId.current++}`;
       const preview = file.type.startsWith("image/") && typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : undefined;
@@ -357,9 +370,9 @@ export function FileDropzone({ accept, multiple = true, maxFiles = 5, onFilesCha
       return { id, name: file.name, size: file.size, file, preview, status: tooLarge ? "failed" : onUpload ? "uploading" : undefined, progress: 0, error: tooLarge ? `File is larger than ${formatFileSize(maxSize)}` : undefined, retryable: !tooLarge };
     });
     const rejected = matching.length !== list.length;
-    const overflow = fresh.length > added.length;
-    setError(rejected ? (list.length - matching.length === 1 && list.length === 1 ? `${list[0]!.name} is not an accepted file type.` : "Some files were not added because their type is not accepted.") : overflow ? `You can add up to ${maxFiles} ${maxFiles === 1 ? "file" : "files"}.` : "");
-    if (rejected || overflow) shakeZone();
+    const overflow = fresh.length > Math.max(0, room);
+    setError(rejected ? (list.length - matching.length === 1 && list.length === 1 ? `${list[0]!.name} is not an accepted file type.` : "Some files were not added because their type is not accepted.") : totalSizeOverflow ? `Selected files cannot exceed ${formatFileSize(maxTotalSize!)} in total.` : overflow ? `You can add up to ${maxFiles} ${maxFiles === 1 ? "file" : "files"}.` : "");
+    if (rejected || overflow || totalSizeOverflow) shakeZone();
     if (!added.length) return;
     if (!multiple) { controllers.current.forEach(controller => controller.abort()); controllers.current.clear(); }
     const next = [...kept, ...added];

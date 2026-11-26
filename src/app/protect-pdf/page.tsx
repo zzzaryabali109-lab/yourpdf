@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import { useId, useMemo, useState } from "react";
 import Button from "@/components/arc/button/button";
 import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";

@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import { useEffect, useRef, useState } from "react";
 import ActionButton from "@/components/arc/action-button/action-button";
 import Button from "@/components/arc/button/button";
@@ -87,22 +88,32 @@ export default function PdfToJpgPage() {
     setConverting(true);
     setConvertError(null);
     setConversionProgress(10);
+    let destroyPdf: (() => Promise<void>) | null = null;
 
     try {
       // 1. Submit to API to register transient document for workspace editing
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const apiPromise = fetch("/api/documents/pdf-to-jpg", {
+      const response = await fetch("/api/documents/pdf-to-jpg", {
         method: "POST",
         body: formData,
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "The PDF upload failed. Please try again.");
+      }
+      const apiData: { id: string } = await response.json();
+      setConversionProgress(20);
 
-      // 2. Concurrently render PDF pages to high-resolution JPGs in the browser
+      // 2. Render after the upload completes, keeping network and canvas work from
+      // competing for memory and CPU at the same time.
       const pdfjs = await import("pdfjs-dist");
       pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
       const arrayBuf = await selectedFile.arrayBuffer();
-      const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
+      const loadingTask = pdfjs.getDocument({ data: arrayBuf });
+      destroyPdf = () => loadingTask.destroy();
+      const pdf = await loadingTask.promise;
       const totalPages = pdf.numPages;
 
       const scale = qualityDpi === "high" ? 2.0 : 1.5; // High resolution rendering
@@ -119,7 +130,12 @@ export default function PdfToJpgPage() {
         canvas.height = Math.floor(viewport.height);
 
         const ctx = canvas.getContext("2d", { alpha: false });
-        if (!ctx) continue;
+        if (!ctx) {
+          page.cleanup();
+          canvas.width = 0;
+          canvas.height = 0;
+          continue;
+        }
 
         // Fill white background for JPEG rendering (PDFs may have transparent canvas backgrounds)
         ctx.fillStyle = "#FFFFFF";
@@ -148,14 +164,12 @@ export default function PdfToJpgPage() {
           });
         }
 
-        const progressPercent = Math.min(90, Math.floor(10 + (i / totalPages) * 80));
-        setConversionProgress(progressPercent);
-      }
+        page.cleanup();
+        canvas.width = 0;
+        canvas.height = 0;
 
-      const response = await apiPromise;
-      let apiData = { id: crypto.randomUUID() };
-      if (response.ok) {
-        apiData = await response.json();
+        const progressPercent = Math.min(90, Math.floor(20 + (i / totalPages) * 70));
+        setConversionProgress(progressPercent);
       }
 
       setConversionProgress(100);
@@ -173,6 +187,7 @@ export default function PdfToJpgPage() {
       const message = err instanceof Error ? err.message : "PDF to JPG conversion failed.";
       setConvertError(message);
     } finally {
+      if (destroyPdf) await destroyPdf().catch(() => undefined);
       setConverting(false);
       setConversionProgress(0);
     }

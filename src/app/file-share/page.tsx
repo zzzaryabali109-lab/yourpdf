@@ -64,7 +64,8 @@ export default function FileSharePage() {
 
       request.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-          onProgress((event.loaded / event.total) * 100);
+          // The final slice completes after the server safely stores the upload.
+          onProgress(Math.min(95, (event.loaded / event.total) * 95));
         }
       };
 
@@ -100,6 +101,11 @@ export default function FileSharePage() {
         const message = "Upload timed out. Please try again with a faster connection.";
         setUploadError(message);
         reject(new Error(message));
+      };
+
+      request.onabort = () => {
+        removeAbortListener();
+        reject(new Error("The upload was canceled."));
       };
 
       request.send(formData);

@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import { useState } from "react";
 import ActionButton from "@/components/arc/action-button/action-button";
 import Button from "@/components/arc/button/button";
@@ -13,6 +14,7 @@ import { CheckCircle2, Download, Layers, Pencil, Share2 } from "lucide-react";
 import styles from "../home.module.css";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
+const MAX_TOTAL_MERGE_SIZE = 100 * 1024 * 1024;
 
 type MergedResult = {
   id: string;
@@ -119,10 +121,11 @@ export default function MergePdfPage() {
             multiple={true}
             maxFiles={20}
             maxSize={MAX_PDF_SIZE}
+            maxTotalSize={MAX_TOTAL_MERGE_SIZE}
             icon={<MergePdfImageIcon className="w-16 h-16 sm:w-20 sm:h-20 object-contain" />}
             label="Drop your PDF files here to merge"
             description="or click to browse multiple files from your device"
-            note="2 or more PDFs · Up to 100 MB each"
+            note="2 or more PDFs · Up to 100 MB total"
             dropLabel="Release to add your PDF files"
             onUpload={uploadFile}
             onFilesChange={(files) => {

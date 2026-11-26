@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSharedMetadata } from "@/lib/share-storage";
 
+export const runtime = "nodejs";
+
 function getPublicOrigin(request: Request): string {
   const forwardedHost = request.headers.get("x-forwarded-host");
   const hostHeader = request.headers.get("host");
