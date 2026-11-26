@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import sys
 import tempfile
@@ -74,16 +75,16 @@ def _pil_for_recompression(image: PdfImage) -> tuple[Image.Image, str] | None:
     return None
 
 
-def _rewrite_image(obj: pikepdf.Object, scale: float, quality: int) -> bool:
+def _rewrite_image(obj: pikepdf.Object, scale: float, quality: int) -> bytes | None:
     # Keep masks and alpha objects intact; changing only their base image can
     # misalign transparency or alter the rendered page.
     if _is_masked(obj) or obj.get("/Subtype") != pikepdf.Name("/Image"):
-        return False
+        return None
 
     try:
         prepared = _pil_for_recompression(PdfImage(obj))
         if prepared is None:
-            return False
+            return None
 
         source, output_colorspace = prepared
         width = max(1, round(source.width * scale))
@@ -93,7 +94,7 @@ def _rewrite_image(obj: pikepdf.Object, scale: float, quality: int) -> bool:
 
         jpeg_bytes = _encode_jpeg(source, quality, output_colorspace)
         if not jpeg_bytes or len(jpeg_bytes) >= len(obj.read_raw_bytes()):
-            return False
+            return None
 
         obj.write(jpeg_bytes, filter=pikepdf.Name("/DCTDecode"))
         obj.Width = width
@@ -102,18 +103,50 @@ def _rewrite_image(obj: pikepdf.Object, scale: float, quality: int) -> bool:
         obj.ColorSpace = pikepdf.Name(output_colorspace)
         for key in ("/Decode", "/DecodeParms", "/Mask", "/SMask", "/SMaskInData", "/ImageMask"):
             _drop_key(obj, key)
-        return True
+        return hashlib.sha256(jpeg_bytes).digest()
     except Exception:
         # Unsupported or malformed image encodings should not abort compression
         # for the other images in the document.
-        return False
+        return None
+
+
+def _page_signature(page: pikepdf.Page) -> tuple[tuple[float, ...], int]:
+    media_box = tuple(round(float(value), 4) for value in page.mediabox)
+    rotation = int(page.obj.get("/Rotate", 0) or 0)
+    return media_box, rotation
+
+
+def _validate_saved_pdf(
+    pdf_path: Path,
+    expected_page_signatures: list[tuple[tuple[float, ...], int]],
+    rewritten_image_hashes: dict[bytes, int],
+) -> None:
+    with pikepdf.open(pdf_path) as candidate:
+        actual_signatures = [_page_signature(page) for page in candidate.pages]
+        if actual_signatures != expected_page_signatures:
+            raise ValueError("The compressed PDF changed its page count, dimensions, or rotation.")
+
+        remaining_hashes = rewritten_image_hashes.copy()
+        for page in candidate.pages:
+            for image_obj in page.get_images().values():
+                image_hash = hashlib.sha256(image_obj.read_raw_bytes()).digest()
+                if remaining_hashes.get(image_hash, 0) == 0:
+                    continue
+                with Image.open(io.BytesIO(image_obj.read_raw_bytes())) as encoded_image:
+                    encoded_image.verify()
+                remaining_hashes[image_hash] -= 1
+
+        if any(count > 0 for count in remaining_hashes.values()):
+            raise ValueError("A rewritten image could not be verified in the compressed PDF.")
 
 
 def _compress_profile(input_path: Path, output_path: Path, scale: float, quality: int) -> tuple[int, int]:
     visited: set[tuple[int, int]] = set()
+    rewritten_image_hashes: dict[bytes, int] = {}
     rewritten = 0
     pdf = pikepdf.open(input_path)
     try:
+        page_signatures = [_page_signature(page) for page in pdf.pages]
         for page in pdf.pages:
             # get_images() includes images inside Form XObjects, which many
             # scanned PDFs use for their actual page contents.
@@ -122,8 +155,10 @@ def _compress_profile(input_path: Path, output_path: Path, scale: float, quality
                 if object_id == (0, 0) or object_id in visited:
                     continue
                 visited.add(object_id)
-                if _rewrite_image(image_obj, scale, quality):
+                image_hash = _rewrite_image(image_obj, scale, quality)
+                if image_hash is not None:
                     rewritten += 1
+                    rewritten_image_hashes[image_hash] = rewritten_image_hashes.get(image_hash, 0) + 1
 
         pdf.save(
             output_path,
@@ -134,6 +169,7 @@ def _compress_profile(input_path: Path, output_path: Path, scale: float, quality
     finally:
         pdf.close()
 
+    _validate_saved_pdf(output_path, page_signatures, rewritten_image_hashes)
     return len(visited), rewritten
 
 

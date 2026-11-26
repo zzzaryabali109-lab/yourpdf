@@ -43,78 +43,6 @@ function hasPdfSignature(bytes: Buffer): boolean {
   return bytes.subarray(0, 1024).includes(Buffer.from("%PDF-"));
 }
 
-async function validateCompressionCandidate(
-  originalBytes: Buffer,
-  candidateBytes: Buffer,
-): Promise<boolean> {
-  let originalPdf: PDFDocument;
-  let candidatePdf: PDFDocument;
-
-  try {
-    originalPdf = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
-    candidatePdf = await PDFDocument.load(candidateBytes, { ignoreEncryption: true });
-  } catch {
-    return false;
-  }
-
-  if (originalPdf.getPageCount() !== candidatePdf.getPageCount()) return false;
-
-  let pdfjs: typeof import("pdfjs-dist/legacy/build/pdf.mjs");
-  try {
-    pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  } catch {
-    // pdf-lib already confirmed the generated file opens and has the same
-    // number of pages; keep the valid smaller output if PDF.js is unavailable.
-    return true;
-  }
-  const originalLoading = pdfjs.getDocument({ data: new Uint8Array(originalBytes) });
-  const candidateLoading = pdfjs.getDocument({ data: new Uint8Array(candidateBytes) });
-
-  try {
-    const [originalDocument, candidateDocument] = await Promise.all([
-      originalLoading.promise,
-      candidateLoading.promise,
-    ]);
-
-    for (let pageNumber = 1; pageNumber <= originalDocument.numPages; pageNumber++) {
-      const [originalPage, candidatePage] = await Promise.all([
-        originalDocument.getPage(pageNumber),
-        candidateDocument.getPage(pageNumber),
-      ]);
-
-      const originalView = originalPage.view;
-      const candidateView = candidatePage.view;
-      const originalText = await originalPage.getTextContent();
-      const candidateText = await candidatePage.getTextContent();
-      const normalizeText = (items: unknown[]) =>
-        items
-          .map((item) => {
-            if (typeof item !== "object" || item === null || !("str" in item)) return "";
-            const value = (item as { str?: unknown }).str;
-            return typeof value === "string" ? value : "";
-          })
-          .join("")
-          .replace(/\s+/g, "");
-
-      if (
-        Math.abs((originalView[2] - originalView[0]) - (candidateView[2] - candidateView[0])) > 0.5 ||
-        Math.abs((originalView[3] - originalView[1]) - (candidateView[3] - candidateView[1])) > 0.5 ||
-        originalPage.rotate !== candidatePage.rotate ||
-        normalizeText(originalText.items as unknown[]) !== normalizeText(candidateText.items as unknown[])
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  } catch {
-    return false;
-  } finally {
-    await originalLoading.destroy().catch(() => undefined);
-    await candidateLoading.destroy().catch(() => undefined);
-  }
-}
-
 type LocalEngineStats = {
   changed: boolean;
   originalBytes: number;
@@ -165,8 +93,6 @@ async function compressWithLocalImageEngine(
     }
 
     if (!candidate || !hasPdfSignature(candidate) || candidate.byteLength >= inputBytes.byteLength) {
-      candidate = null;
-    } else if (!await validateCompressionCandidate(inputBytes, candidate)) {
       candidate = null;
     }
 
@@ -251,7 +177,7 @@ export async function compressTransientDocument(
       if (!candidateBytes || candidateBytes.byteLength >= originalSize) {
         throw new Error(
           engineStats.changed
-            ? "The PDF compression result failed validation, so the original file was kept."
+            ? "The PDF compression result was not smaller than the original, so the original file was kept."
             : "The local engine could not make this PDF smaller. It may contain no compressible images, already-optimized images, or image types this engine cannot safely rewrite.",
         );
       }
