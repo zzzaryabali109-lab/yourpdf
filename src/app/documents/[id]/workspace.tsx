@@ -146,26 +146,6 @@ type PdfJsFontObject = {
   cssFontInfo?: { fontFamily?: string; fontWeight?: number; italicAngle?: number };
 };
 
-function WordFileIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#2563eb" fillOpacity="0.12" stroke="#2563eb" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M14 2v6h6" stroke="#2563eb" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M7.5 13l1.8 6 1.7-4.5 1.7 4.5 1.8-6" stroke="#2563eb" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function PdfFileIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="#dc2626" fillOpacity="0.12" stroke="#dc2626" strokeWidth="1.7" strokeLinejoin="round" />
-      <path d="M14 2v6h6" stroke="#dc2626" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9 13.5v5M9 13.5h2.5a1.5 1.5 0 0 1 0 3H9" stroke="#dc2626" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function cleanFontName(fontName: string): string {
   if (!fontName) return "";
   let clean = fontName.replace(/^[A-Z]{6}\+/, "").trim();
@@ -2747,7 +2727,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
               disabled={exportingDocx}
               onClick={() => void exportWordDocument()}
             >
-              <WordFileIcon size={18} />
+              <NextImage src="/icons/word-workspace.png" alt="" width={26} height={26} className={styles.exportFileIcon} />
             </Button>
             <Button
               variant="ghost"
@@ -2757,7 +2737,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
               title="Download PDF (.pdf)"
               onClick={() => void exportPdfDocument()}
             >
-              <PdfFileIcon size={18} />
+              <NextImage src="/flat-pdf-document-icon.webp" alt="" width={26} height={26} className={styles.exportFileIcon} />
             </Button>
             <Button
               variant="ghost"

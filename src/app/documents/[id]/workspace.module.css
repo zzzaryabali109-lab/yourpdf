@@ -415,6 +415,13 @@
   flex-shrink: 0;
 }
 
+.exportFileIcon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
 .exportDocxButton {
   color: #1d4ed8 !important;
 }
