@@ -97,47 +97,16 @@ const mobileSections: MobileDropdownSection[] = [
   },
 ];
 
-function YourPdfLogo({
-  className,
-  darkModeAware = true,
-}: {
-  className: string;
-  darkModeAware?: boolean;
-}) {
-  const imageClassName = `object-contain ${className}`;
-
-  if (!darkModeAware) {
-    return (
-      <Image
-        src="/yourpdf-logo-light.webp"
-        alt=""
-        width={1000}
-        height={276}
-        sizes="200px"
-        className={imageClassName}
-      />
-    );
-  }
-
+function YourPdfLogo({ className }: { className: string }) {
   return (
-    <>
-      <Image
-        src="/yourpdf-logo-light.webp"
-        alt=""
-        width={1000}
-        height={276}
-        sizes="200px"
-        className={`dark:hidden ${imageClassName}`}
-      />
-      <Image
-        src="/yourpdf-logo-dark.webp"
-        alt=""
-        width={1000}
-        height={276}
-        sizes="200px"
-        className={`hidden dark:block ${imageClassName}`}
-      />
-    </>
+    <Image
+      src="/yourpdf-logo.png"
+      alt=""
+      width={2096}
+      height={533}
+      unoptimized
+      className={`object-contain ${className}`}
+    />
   );
 }
 
@@ -246,7 +215,7 @@ export function SiteHeader() {
                 aria-label="YourPDF home"
                 onClick={() => setMobileOpen(false)}
               >
-                <YourPdfLogo className="h-9 w-auto max-w-[135px]" darkModeAware={false} />
+                <YourPdfLogo className="h-9 w-auto max-w-[135px]" />
               </Link>
               <button
                 type="button"
