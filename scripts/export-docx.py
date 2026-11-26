@@ -71,79 +71,116 @@ def is_font_italic(fontname: Optional[str], italic: Optional[bool] = None) -> bo
 
 
 def replace_in_runs(paragraph: Any, old_text: str, new_text: str) -> bool:
-    if not old_text or old_text not in paragraph.text:
+    if not old_text:
         return False
 
-    # 1. Direct single-run replacement (preserves exact font/style of the run)
-    for run in paragraph.runs:
-        if old_text in run.text:
-            run.text = run.text.replace(old_text, new_text)
-            return True
+    runs = paragraph.runs
+    full_text = "".join(run.text for run in runs)
+    start = full_text.find(old_text)
+    if start < 0:
+        return False
+    end = start + len(old_text)
 
-    # 2. Text spans across multiple runs in this paragraph
-    # Preserve formatting attributes of the run that held the start of the text
-    if paragraph.runs:
-        first_run = paragraph.runs[0]
-        font_name = first_run.font.name
-        font_size = first_run.font.size
-        bold = first_run.bold
-        italic = first_run.italic
-        color = first_run.font.color.rgb if (first_run.font.color and first_run.font.color.rgb) else None
+    offsets = []
+    cursor = 0
+    for run in runs:
+        offsets.append((cursor, cursor + len(run.text)))
+        cursor += len(run.text)
 
-        full_text = paragraph.text.replace(old_text, new_text)
-        paragraph.text = ""
-        new_run = paragraph.add_run(full_text)
-        if font_name:
-            new_run.font.name = font_name
-        if font_size:
-            new_run.font.size = font_size
-        if bold is not None:
-            new_run.bold = bold
-        if italic is not None:
-            new_run.italic = italic
-        if color:
-            new_run.font.color.rgb = color
+    start_run = next((i for i, (left, right) in enumerate(offsets) if left <= start < right), None)
+    end_run = next((i for i, (left, right) in enumerate(offsets) if left < end <= right), None)
+    if start_run is None or end_run is None:
+        return False
+
+    # Do not rewrite runs that contain drawings, fields, or other non-text XML.
+    for index in range(start_run, end_run + 1):
+        run_xml = runs[index]._r
+        if any(child.tag not in {"{http://schemas.openxmlformats.org/wordprocessingml/2006/main}rPr", "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t", "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tab", "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}br", "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}cr"} for child in run_xml):
+            return False
+
+    start_left = offsets[start_run][0]
+    end_left = offsets[end_run][0]
+    start_local = start - start_left
+    end_local = end - end_left
+    if start_run == end_run:
+        source = runs[start_run].text
+        runs[start_run].text = source[:start_local] + new_text + source[end_local:]
         return True
 
-    return False
+    start_source = runs[start_run].text
+    end_source = runs[end_run].text
+    runs[start_run].text = start_source[:start_local] + new_text
+    for index in range(start_run + 1, end_run):
+        runs[index].text = ""
+    runs[end_run].text = end_source[end_local:]
+    return True
 
 
-def process_table(table: Any, old_text: str, new_text: str):
+def process_table(table: Any, old_text: str, new_text: str) -> bool:
     for row in table.rows:
         for cell in row.cells:
             for p in cell.paragraphs:
-                replace_in_runs(p, old_text, new_text)
+                if replace_in_runs(p, old_text, new_text):
+                    return True
             for inner_table in cell.tables:
-                process_table(inner_table, old_text, new_text)
+                if process_table(inner_table, old_text, new_text):
+                    return True
+    return False
 
 
 def apply_edits_to_existing_docx(doc_path: str, edits: List[Dict[str, Any]], out_path: str) -> bool:
     try:
         doc = docx.Document(doc_path)
+        any_change = False
 
         for edit in edits:
-            old_text = (edit.get("originalText") or edit.get("text") or "").strip()
-            new_text = (edit.get("newText") or edit.get("value") or "").strip()
-            if not old_text or old_text == new_text:
+            old_text = edit.get("originalText") if edit.get("originalText") is not None else edit.get("text", "")
+            new_text = edit.get("newText") if edit.get("newText") is not None else edit.get("value", "")
+            old_text = str(old_text or "")
+            new_text = str(new_text or "")
+            if not old_text.strip() or old_text == new_text:
                 continue
 
+            matched = False
             # 1. Main body paragraphs
             for p in doc.paragraphs:
-                replace_in_runs(p, old_text, new_text)
+                if replace_in_runs(p, old_text, new_text):
+                    matched = True
+                    break
 
             # 2. Tables & nested tables
-            for table in doc.tables:
-                process_table(table, old_text, new_text)
+            if not matched:
+                for table in doc.tables:
+                    if process_table(table, old_text, new_text):
+                        matched = True
+                        break
 
             # 3. Headers and Footers
-            for section in doc.sections:
-                for hf in [section.header, section.footer]:
-                    if not hf:
-                        continue
-                    for p in hf.paragraphs:
-                        replace_in_runs(p, old_text, new_text)
-                    for table in hf.tables:
-                        process_table(table, old_text, new_text)
+            if not matched:
+                for section in doc.sections:
+                    for hf in [section.header, section.footer]:
+                        if not hf:
+                            continue
+                        for p in hf.paragraphs:
+                            if replace_in_runs(p, old_text, new_text):
+                                matched = True
+                                break
+                        if not matched:
+                            for table in hf.tables:
+                                if process_table(table, old_text, new_text):
+                                    matched = True
+                                    break
+                        if matched:
+                            break
+
+            if not matched:
+                sys.stderr.write(f"Edited text could not be matched in the original Word file: {old_text[:80]}\n")
+                return False
+            any_change = True
+
+        if edits and not any_change:
+            sys.stderr.write("No text changes were applied to the original Word file.\n")
+            return False
 
         doc.save(out_path)
         return True
@@ -266,6 +303,7 @@ def main():
         success = apply_edits_to_existing_docx(args.input_docx, edits, args.output_docx)
         if success:
             sys.exit(0)
+        sys.exit(1)
 
     if args.input_pdf and os.path.exists(args.input_pdf):
         success = build_docx_from_pdf(args.input_pdf, edits, args.output_docx)

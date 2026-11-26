@@ -53,7 +53,7 @@ export async function POST(
 
   try {
     const docxBuffer = await exportDocumentToDocx({
-      sourceDocx: document.sourceDocx,
+      sourceDocx: customPdfBytes ? undefined : document.sourceDocx,
       pdfBytes: customPdfBytes || document.clean || document.original,
       edits,
     });

@@ -87,6 +87,8 @@ type PdfTextRun = {
   fontItalic: boolean;
   rotation: number;
   rect: PdfRect;
+  backgroundColor?: string;
+  textColor?: string;
   manual?: boolean;
 };
 type PdfPageText = { document: PDFDocumentProxy; pageNumber: number; runs: PdfTextRun[]; text: string };
@@ -137,7 +139,7 @@ type DocumentHistorySnapshot = {
 };
 
 type PdfJsFontObject = {
-  data?: Uint8Array | null;
+  data?: Uint8Array | ArrayBuffer | null;
   bold?: boolean;
   italic?: boolean;
   name?: string;
@@ -222,6 +224,56 @@ function resolveFontFamily(pdfFont: PdfJsFontObject | undefined, fallback: strin
     }
   }
   return "'Calibri', 'Segoe UI', Arial, sans-serif";
+}
+
+function getPdfFontBytes(pdfFont: PdfJsFontObject | undefined): Uint8Array | undefined {
+  if (!pdfFont?.data) return undefined;
+  return pdfFont.data instanceof Uint8Array ? pdfFont.data : new Uint8Array(pdfFont.data);
+}
+
+const embeddedPdfFontLoads = new Map<string, Promise<string>>();
+
+function cssFontFamilyForPdfFont(documentId: string, fontName: string, pdfFont: PdfJsFontObject | undefined, fallback: string | undefined): string {
+  const fontBytes = getPdfFontBytes(pdfFont);
+  if (!fontBytes?.byteLength || typeof FontFace === "undefined" || typeof document === "undefined") {
+    return resolveFontFamily(pdfFont, fallback);
+  }
+
+  const family = `YourPdfEmbedded-${documentId.replaceAll("-", "")}-${fontName.replace(/[^a-z0-9]/gi, "")}`;
+  let load = embeddedPdfFontLoads.get(family);
+  if (!load) {
+    try {
+      const fontSource = new ArrayBuffer(fontBytes.byteLength);
+      new Uint8Array(fontSource).set(fontBytes);
+      load = new FontFace(family, fontSource)
+        .load()
+        .then((loaded) => {
+          document.fonts.add(loaded);
+          return family;
+        })
+        .catch(() => resolveFontFamily(pdfFont, fallback));
+      embeddedPdfFontLoads.set(family, load);
+    } catch {
+      return resolveFontFamily(pdfFont, fallback);
+    }
+  }
+  return `"${family}", ${resolveFontFamily(pdfFont, fallback)}`;
+}
+
+function parseHexColor(hex: string | undefined): [number, number, number] | undefined {
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return undefined;
+  return [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255) as [number, number, number];
+}
+
+let pdfTextMeasureCanvas: HTMLCanvasElement | null = null;
+
+function measurePdfTextWidth(text: string, run: PdfTextRun): number {
+  if (typeof document === "undefined") return text.length * run.fontSize * 0.52;
+  pdfTextMeasureCanvas ??= document.createElement("canvas");
+  const context = pdfTextMeasureCanvas.getContext("2d");
+  if (!context) return text.length * run.fontSize * 0.52;
+  context.font = `${run.fontItalic ? "italic " : ""}${run.fontWeight} ${run.fontSize}px ${run.fontFamily}`;
+  return context.measureText(text).width;
 }
 
 function getPdfJsFont(page: PDFPageProxy, fontName: string): Promise<PdfJsFontObject | undefined> {
@@ -561,7 +613,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedZoom(zoom);
-    }, 280);
+    }, 120);
     return () => clearTimeout(timer);
   }, [zoom]);
 
@@ -580,6 +632,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftRun, setDraftRun] = useState<PdfTextRun | null>(null);
   const [draftText, setDraftText] = useState("");
+  const draftTextRef = useRef("");
   const [editNotice, setEditNotice] = useState("");
   const [selectionPreview, setSelectionPreview] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("select");
@@ -813,7 +866,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
           const scale = Math.max(0.25, fittedScale);
           const width = baseWidth * scale;
           const height = baseHeight * scale;
-          const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+          const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
           setRenderScale(scale);
           setRenderSize({ width, height });
           canvas.width = Math.floor(width * outputScale);
@@ -874,7 +927,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
 
         // Double-buffered rendering via offscreen canvas:
         // Keeps previous frame visible during smooth zoom animation, eliminating blank flashes.
-        const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+        const outputScale = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
         const offscreen = document.createElement("canvas");
         offscreen.width = Math.floor(viewport.width * outputScale);
         offscreen.height = Math.floor(viewport.height * outputScale);
@@ -941,6 +994,12 @@ export default function Workspace({ documentId }: { documentId: string }) {
         const fontNames = Array.from(new Set(content.items.flatMap((item) => "str" in item ? [item.fontName] : [])));
         const fontEntries = await Promise.all(fontNames.map(async (fontName) => [fontName, await getPdfJsFont(page, fontName)] as const));
         const pdfFonts = new Map(fontEntries);
+        const familyEntries = fontNames.map((fontName) => {
+          const font = content.styles[fontName];
+          const family = cssFontFamilyForPdfFont(documentId, fontName, pdfFonts.get(fontName), font?.fontFamily);
+          return [fontName, family] as const;
+        });
+        const pdfFontFamilies = new Map(familyEntries);
         const runs: PdfTextRun[] = content.items.flatMap((item, index) => {
           if (!("str" in item) || !item.str.trim()) return [];
           const transform = pdfjs.Util.transform(viewport.transform, item.transform);
@@ -973,7 +1032,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
             width,
             height,
             fontSize,
-            fontFamily: resolveFontFamily(pdfFont, font?.fontFamily),
+            fontFamily: pdfFontFamilies.get(item.fontName) ?? resolveFontFamily(pdfFont, font?.fontFamily),
             fontWeight: pdfFont?.cssFontInfo?.fontWeight ?? (pdfFont?.bold ? 700 : 400),
             fontItalic: pdfFont?.italic ?? Boolean(pdfFont?.cssFontInfo?.italicAngle),
             rotation: Math.atan2(transform[1], transform[0]),
@@ -1041,7 +1100,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
     };
     void readPageText();
     return () => { active = false; };
-  }, [pdfDocument, pageNumber, rotation]);
+  }, [pdfDocument, pageNumber, rotation, documentId]);
 
   const goToPage = useCallback((next: number) => {
     setPageNumber(Math.min(totalPageCount || 1, Math.max(1, next)));
@@ -1158,10 +1217,106 @@ export default function Workspace({ documentId }: { documentId: string }) {
     }
   };
 
+  const sampleTextBackground = (run: PdfTextRun) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !renderSize.width || !renderSize.height) return "#ffffff";
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return "#ffffff";
+
+    const pixelRatio = canvas.width / renderSize.width;
+    const left = run.left * renderScale * pixelRatio;
+    const top = run.top * renderScale * pixelRatio;
+    const width = Math.max(run.width * renderScale * pixelRatio, 2);
+    const height = Math.max(run.height * renderScale * pixelRatio, 2);
+    const inset = Math.max(2, Math.min(5, run.fontSize * renderScale * pixelRatio * 0.18));
+    const samples: Array<[number, number]> = [];
+    const step = Math.max(4, Math.floor(Math.min(width, 80) / 8));
+    for (let x = left; x <= left + width; x += step) {
+      samples.push([x, top - inset], [x, top + height + inset]);
+    }
+    for (let y = top; y <= top + height; y += step) {
+      samples.push([left - inset, y], [left + width + inset, y]);
+    }
+
+    const buckets = new Map<string, { count: number; rgb: [number, number, number] }>();
+    for (const [x, y] of samples) {
+      const px = Math.max(0, Math.min(canvas.width - 1, Math.round(x)));
+      const py = Math.max(0, Math.min(canvas.height - 1, Math.round(y)));
+      try {
+        const data = context.getImageData(px, py, 1, 1).data;
+        if (data[3] < 240) continue;
+        const rgb: [number, number, number] = [data[0], data[1], data[2]];
+        const key = rgb.map((value) => Math.round(value / 24)).join(":");
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.count += 1;
+          bucket.rgb = bucket.rgb.map((value, index) => Math.round((value * (bucket.count - 1) + rgb[index]) / bucket.count)) as [number, number, number];
+        } else {
+          buckets.set(key, { count: 1, rgb });
+        }
+      } catch {
+        return "#ffffff";
+      }
+    }
+
+    const dominant = Array.from(buckets.values()).sort((a, b) => b.count - a.count)[0];
+    return dominant ? `#${dominant.rgb.map((value) => value.toString(16).padStart(2, "0")).join("")}` : "#ffffff";
+  };
+
+  const sampleTextColor = (run: PdfTextRun, backgroundColor: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !renderSize.width || !renderSize.height) return "#15181c";
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const background = parseHexColor(backgroundColor);
+    if (!context || !background) return "#15181c";
+    const pixelRatio = canvas.width / renderSize.width;
+    const left = Math.max(0, Math.floor(run.left * renderScale * pixelRatio));
+    const top = Math.max(0, Math.floor(run.top * renderScale * pixelRatio));
+    const width = Math.max(1, Math.ceil(run.width * renderScale * pixelRatio));
+    const height = Math.max(1, Math.ceil(run.height * renderScale * pixelRatio));
+    const sampleWidth = Math.min(width, canvas.width - left);
+    const sampleHeight = Math.min(height, canvas.height - top);
+    if (sampleWidth <= 0 || sampleHeight <= 0) return "#15181c";
+    const step = Math.max(1, Math.floor(Math.min(width, height) / 16));
+    const buckets = new Map<string, { count: number; rgb: [number, number, number] }>();
+    try {
+      const pixels = context.getImageData(left, top, sampleWidth, sampleHeight).data;
+      for (let y = 0; y < sampleHeight; y += step) {
+        for (let x = 0; x < sampleWidth; x += step) {
+          const offset = (y * sampleWidth + x) * 4;
+          if (pixels[offset + 3] < 240) continue;
+          const rgb: [number, number, number] = [pixels[offset], pixels[offset + 1], pixels[offset + 2]];
+          if (rgb.reduce((distance, value, index) => distance + Math.abs(value - background[index] * 255), 0) < 100) continue;
+          const key = rgb.map((value) => Math.round(value / 32)).join(":");
+          const bucket = buckets.get(key);
+          if (bucket) {
+            bucket.count += 1;
+            bucket.rgb = bucket.rgb.map((value, index) => Math.round((value * (bucket.count - 1) + rgb[index]) / bucket.count)) as [number, number, number];
+          } else {
+            buckets.set(key, { count: 1, rgb });
+          }
+        }
+      }
+    } catch {
+      return "#15181c";
+    }
+    const dominant = Array.from(buckets.values()).sort((a, b) => b.count - a.count)[0];
+    return dominant ? `#${dominant.rgb.map((value) => value.toString(16).padStart(2, "0")).join("")}` : "#15181c";
+  };
+
   const beginInlineEdit = (run: PdfTextRun) => {
     const saved = edits[run.key];
-    setDraftRun(run);
-    setDraftText(saved?.value ?? run.text);
+    const backgroundColor = saved?.backgroundColor ?? run.backgroundColor ?? sampleTextBackground(run);
+    const editableRun = {
+      ...run,
+      ...(saved ?? {}),
+      backgroundColor,
+      textColor: saved?.textColor ?? run.textColor ?? sampleTextColor(run, backgroundColor),
+    };
+    const initialText = saved?.value ?? run.text;
+    setDraftRun(editableRun);
+    draftTextRef.current = initialText;
+    setDraftText(initialText);
     setEditingKey(run.key);
     setEditNotice("Edit the text, then press Enter or click outside the field to save.");
   };
@@ -1169,40 +1324,41 @@ export default function Workspace({ documentId }: { documentId: string }) {
   const cancelInlineEdit = useCallback(() => {
     setEditingKey(null);
     setDraftRun(null);
+    draftTextRef.current = "";
     setDraftText("");
     setSelectionPreview(null);
   }, []);
 
   const commitInlineEdit = useCallback(() => {
     if (!editingKey || !draftRun) return;
+    const nextDraftText = draftTextRef.current;
     const next = { ...edits };
-    if (!draftRun.manual && draftText === draftRun.text) {
+    if (!draftRun.manual && nextDraftText === draftRun.text) {
       delete next[editingKey];
     } else {
-      const charRatio = draftRun.text.length > 0 ? draftText.length / draftRun.text.length : 1;
-      const effectiveRatio = Math.max(1, charRatio);
-      const estWidth = draftText.length * draftRun.fontSize * 0.58;
-      const newWidth = Math.max(draftRun.width * effectiveRatio, estWidth);
-      const newRectWidth = Math.max(draftRun.rect.width * effectiveRatio, estWidth);
+      const measuredWidth = measurePdfTextWidth(nextDraftText, draftRun);
+      const newWidth = Math.max(draftRun.width, measuredWidth + 2);
+      const newRectWidth = Math.max(draftRun.rect.width, draftRun.rect.width + Math.max(0, newWidth - draftRun.width));
       next[editingKey] = {
         ...draftRun,
         width: newWidth,
         rect: { ...draftRun.rect, width: newRectWidth },
-        value: draftText,
+        value: nextDraftText,
       };
     }
     const currentVal = edits[editingKey]?.value ?? (draftRun.manual ? "" : draftRun.text);
-    if (draftText !== currentVal) {
+    if (nextDraftText !== currentVal) {
       pushHistory({ edits, markups: documentMarkups, addedBlankPages });
     }
     setEditState({ documentId, items: next });
     try { localStorage.setItem(`clearpdf:edits:${documentId}`, JSON.stringify(next)); } catch { /* The edit remains available for export in this tab. */ }
     setEditingKey(null);
     setDraftRun(null);
+    draftTextRef.current = "";
     setDraftText("");
-    setEditNotice(draftRun.manual ? "Replacement saved for this page." : "Text replacement saved.");
+    setEditNotice(draftRun.manual ? "Replacement saved for this page." : "Text replacement saved with the source font and page background.");
     setSelectionPreview(null);
-  }, [editingKey, draftRun, edits, draftText, pushHistory, documentMarkups, addedBlankPages, documentId]);
+  }, [editingKey, draftRun, edits, pushHistory, documentMarkups, addedBlankPages, documentId]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
@@ -1889,6 +2045,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
         rect: { x, y, width: Math.max(1, Math.max(...xs) - x), height: Math.max(1, Math.max(...ys) - y) },
       };
       setDraftRun(run);
+      draftTextRef.current = "";
       setDraftText("");
       setEditingKey(run.key);
       setSelectionPreview(null);
@@ -1935,13 +2092,13 @@ export default function Workspace({ documentId }: { documentId: string }) {
             context.font = `${Math.max(8, edit.fontSize * scale)}px ${edit.fontFamily}`;
             const textMetrics = context.measureText(edit.value);
             const boxWidth = Math.max(box.width, textMetrics.width + 8);
-            context.fillStyle = "#fff";
+            context.fillStyle = edit.backgroundColor ?? "#fff";
             context.fillRect(box.left, box.top, boxWidth, box.height);
-            context.fillStyle = "#15181c";
+            context.fillStyle = edit.textColor ?? "#15181c";
             context.textBaseline = "middle";
             context.fillText(edit.value, box.left + 2, box.top + box.height / 2);
           } else {
-            context.fillStyle = "#fff";
+            context.fillStyle = edit.backgroundColor ?? "#fff";
             context.fillRect(box.left, box.top, box.width, box.height);
           }
         }
@@ -2011,8 +2168,10 @@ export default function Workspace({ documentId }: { documentId: string }) {
       const page = pdf.getPage(edit.pageNumber - 1);
       if (!page) continue;
       const { x, y, width, height } = edit.rect;
+      const backgroundRgb = parseHexColor(edit.backgroundColor) ?? [1, 1, 1];
+      const textRgb = parseHexColor(edit.textColor) ?? [0.08, 0.09, 0.11];
       if (!edit.value) {
-        page.drawRectangle({ x, y, width, height, color: rgb(1, 1, 1) });
+        page.drawRectangle({ x, y, width, height, color: rgb(...backgroundRgb) });
         continue;
       }
       const cacheKey = edit.fontName || `${edit.fontFamily}-${edit.fontWeight}-${edit.fontItalic}`;
@@ -2022,7 +2181,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
         if (edit.fontName && pdfDocument) {
           const sourcePage = await pdfDocument.getPage(edit.pageNumber);
           await sourcePage.getOperatorList();
-          embeddedFontData = (await getPdfJsFont(sourcePage, edit.fontName))?.data ?? undefined;
+          embeddedFontData = getPdfFontBytes(await getPdfJsFont(sourcePage, edit.fontName));
         }
         if (embeddedFontData?.length) {
           try {
@@ -2032,6 +2191,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
           }
         }
         if (!font) {
+          if (edit.fontName) usedFallbackFont = true;
           const family = edit.fontFamily.toLocaleLowerCase();
           const bold = edit.fontWeight >= 600;
           const italic = edit.fontItalic;
@@ -2050,13 +2210,13 @@ export default function Workspace({ documentId }: { documentId: string }) {
       const fontSize = Math.max(6, edit.fontSize);
       const textWidth = font.widthOfTextAtSize(edit.value, fontSize);
       const rectWidth = Math.max(width, textWidth + 4);
-      page.drawRectangle({ x, y, width: rectWidth, height, color: rgb(1, 1, 1) });
+      page.drawRectangle({ x, y, width: rectWidth, height, color: rgb(...backgroundRgb) });
       page.drawText(edit.value, {
         x: x + 1,
         y: y + Math.max(0.5, (height - fontSize) / 2),
         size: fontSize,
         font,
-        color: rgb(0.08, 0.09, 0.11),
+        color: rgb(...textRgb),
         rotate: degrees(-edit.rotation * 180 / Math.PI),
       });
     }
@@ -2216,7 +2376,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
 
   const exportEditedPdf = async () => {
     const currentEditMap = { ...edits };
-    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftText };
+    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftTextRef.current };
     const currentEdits = Object.values(currentEditMap).filter((edit) => edit.manual || edit.value !== edit.text);
     if (!currentEdits.length && !documentMarkups.length && !addedBlankPages.length) return;
     if (editingKey) commitInlineEdit();
@@ -2247,7 +2407,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
   const exportWordDocument = async () => {
     if (exportingDocx) return;
     const currentEditMap = { ...edits };
-    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftText };
+    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftTextRef.current };
     if (editingKey) commitInlineEdit();
 
     setExportingDocx(true);
@@ -2258,7 +2418,20 @@ export default function Workspace({ documentId }: { documentId: string }) {
 
       let response: Response;
 
-      if (hasAnyEdits) {
+      const textOnlyEdits = currentEdits.length > 0
+        && currentEdits.every((edit) => !edit.manual && Boolean(edit.text))
+        && documentMarkups.length === 0
+        && addedBlankPages.length === 0;
+
+      if (textOnlyEdits) {
+        // Let the DOCX exporter replace text in the source Word runs so their
+        // original font, size, and character formatting survive the edit.
+        response = await fetch(`/api/documents/${documentId}/docx`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ edits: currentEdits }),
+        });
+      } else if (hasAnyEdits) {
         // Build the edited PDF so the exported Word document includes all changes, text edits, and markups
         const result = await buildEditedPdfBytes(currentEdits);
         const payloadBlob = new Blob([result.bytes.buffer as ArrayBuffer], { type: "application/pdf" });
@@ -2303,7 +2476,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
 
   const exportPdfDocument = async () => {
     const currentEditMap = { ...edits };
-    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftText };
+    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftTextRef.current };
     const currentEdits = Object.values(currentEditMap).filter((edit) => edit.manual || edit.value !== edit.text);
 
     if (!currentEdits.length && !documentMarkups.length && !addedBlankPages.length) {
@@ -2316,7 +2489,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
 
   const handleOpenShareModal = async () => {
     const currentEditMap = { ...edits };
-    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftText };
+    if (editingKey && draftRun) currentEditMap[editingKey] = { ...draftRun, value: draftTextRef.current };
     const currentEdits = Object.values(currentEditMap).filter((edit) => edit.manual || edit.value !== edit.text);
     const hasChanges = currentEdits.length > 0 || documentMarkups.length > 0 || addedBlankPages.length > 0;
 
@@ -3130,10 +3303,8 @@ export default function Workspace({ documentId }: { documentId: string }) {
                           const saved = edits[run.key];
                           const isEditing = editingKey === run.key;
                           const value = isEditing ? draftText : (saved?.value ?? run.text);
-                          const charCount = Math.max(run.text.length, value.length);
-                          const charWidthEstimate = run.fontSize * 0.58;
-                          const naturalWidth = charCount * charWidthEstimate;
-                          const baseWidth = Math.max(run.width, naturalWidth) * renderScale;
+                          const naturalWidth = (saved || isEditing) ? Math.max(run.width, measurePdfTextWidth(value, run)) : run.width;
+                          const baseWidth = naturalWidth * renderScale;
                           const width = isEditing ? Math.max(baseWidth + 24, 40) : baseWidth;
                           const height = Math.max(run.height, run.fontSize) * renderScale;
                           const itemStyle: CSSProperties = {
@@ -3146,14 +3317,16 @@ export default function Workspace({ documentId }: { documentId: string }) {
                             fontWeight: run.fontWeight,
                             fontStyle: run.fontItalic ? "italic" : "normal",
                             transform: `rotate(${run.rotation}rad)`,
+                            backgroundColor: isEditing ? (saved?.backgroundColor ?? draftRun?.backgroundColor ?? run.backgroundColor ?? "#fff") : undefined,
+                            color: isEditing ? (saved?.textColor ?? draftRun?.textColor ?? run.textColor ?? "#15181c") : undefined,
                           };
                           if (isEditing) {
-                            return <input key={run.key} ref={editInputRef} autoFocus className={styles.inlineTextInput} style={itemStyle} value={draftText} aria-label={`Edit PDF text ${run.text || "replacement"}`} onChange={(event) => setDraftText(event.target.value)} onBlur={commitInlineEdit} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { event.preventDefault(); cancelInlineEdit(); } }} />;
+                            return <input key={run.key} ref={editInputRef} autoFocus className={styles.inlineTextInput} style={itemStyle} defaultValue={draftText} aria-label={`Edit PDF text ${run.text || "replacement"}`} onChange={(event) => { draftTextRef.current = event.target.value; event.currentTarget.style.width = `${Math.max(40, measurePdfTextWidth(event.target.value, run) * renderScale + 24)}px`; }} onBlur={commitInlineEdit} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } if (event.key === "Escape") { event.preventDefault(); cancelInlineEdit(); } }} />;
                           }
                           if (editMode) {
-                            return <button key={run.key} type="button" className={`${styles.editTextHit} ${saved ? styles.changedTextHit : ""} ${run.manual ? styles.manualTextHit : ""}`} style={itemStyle} title="Click to edit this text" onClick={() => beginInlineEdit(run)}>{value}</button>;
+                            return <button key={run.key} type="button" className={`${styles.editTextHit} ${saved ? styles.changedTextHit : ""} ${run.manual ? styles.manualTextHit : ""}`} style={{ ...itemStyle, backgroundColor: saved?.backgroundColor ?? run.backgroundColor, color: saved?.textColor ?? run.textColor }} title="Click to edit this text" onClick={() => beginInlineEdit(run)}>{value}</button>;
                           }
-                          return <span key={run.key} className={`${styles.editTextHit} ${styles.changedTextHit} ${styles.editedTextPreview}`} style={itemStyle}>{value}</span>;
+                          return <span key={run.key} className={`${styles.editTextHit} ${styles.changedTextHit} ${styles.editedTextPreview}`} style={{ ...itemStyle, backgroundColor: saved?.backgroundColor ?? run.backgroundColor, color: saved?.textColor ?? run.textColor }} >{value}</span>;
                         })}
                         {selectionPreview && <span className={styles.selectionPreview} style={selectionPreview} />}
                       </div>

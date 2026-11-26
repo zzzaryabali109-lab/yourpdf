@@ -57,10 +57,10 @@ async function applyDocxEdits(docxBytes: Buffer, edits: TextEditPayload[]): Prom
     if (fs.existsSync(tempOut)) {
       return await fs.promises.readFile(tempOut);
     }
-    return docxBytes;
+    throw new Error("The edited text could not be found in the original Word document.");
   } catch (err) {
     console.warn("[applyDocxEdits] Failed to apply text edits to DOCX:", err);
-    return docxBytes;
+    throw err instanceof Error ? err : new Error("The edited text could not be applied to the original Word document.");
   } finally {
     try { if (fs.existsSync(tempIn)) await fs.promises.unlink(tempIn); } catch {}
     try { if (fs.existsSync(tempEdits)) await fs.promises.unlink(tempEdits); } catch {}
@@ -107,9 +107,9 @@ export async function exportDocumentToDocx(options: {
 }): Promise<Buffer> {
   const edits = options.edits ?? [];
   const activeEdits = edits.filter((e) => {
-    const orig = (e.originalText || e.text || "").trim();
-    const next = (e.newText || e.value || "").trim();
-    return orig.length > 0 && next.length > 0 && orig !== next;
+    const orig = e.originalText ?? e.text ?? "";
+    const next = e.newText ?? e.value ?? "";
+    return orig.trim().length > 0 && orig !== next;
   });
 
   // 1. If sourceDocx is available, use it directly (with any text edits applied)

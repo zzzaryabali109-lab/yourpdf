@@ -1390,6 +1390,7 @@
   line-height: 1;
   text-align: left;
   white-space: pre;
+  transition: background-color .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 
 .textEditLayerActive .editTextHit {
