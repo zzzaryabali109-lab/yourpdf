@@ -59,7 +59,7 @@ const mobileSections: MobileDropdownSection[] = [
       { title: "JPG to PDF", href: "/jpg-to-pdf", icon: <JpgToPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "WORD to PDF", href: "/word-to-pdf", icon: <WordToPdfImageIcon className="size-4 shrink-0 object-contain" /> },
       { title: "POWERPOINT to PDF", href: "/powerpoint-to-pdf", icon: <PowerpointToPdfIcon className="w-7 h-4 shrink-0 object-contain" /> },
-      { title: "EXCEL to PDF", href: "/excel-to-pdf", icon: <ExcelToPdfIcon className="size-4 shrink-0" /> },
+      { title: "EXCEL to PDF", href: "/excel-to-pdf", icon: <ExcelToPdfIcon className="w-7 h-4 shrink-0 object-contain" /> },
       { title: "HTML to PDF", href: "/html-to-pdf", icon: <HtmlToPdfIcon className="size-4 shrink-0" /> },
     ],
   },
