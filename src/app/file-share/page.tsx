@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { SiteHeader } from "@/components/site-header";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
@@ -16,7 +17,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { RealFileBadge } from "@/components/ui/real-file-badge";
-import { FileShareDropzoneIcon } from "@/components/ui/convert-icons";
 import styles from "../home.module.css";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -133,7 +133,7 @@ export default function FileSharePage() {
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <SiteHeader />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-6 py-6 sm:py-12 lg:px-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-3 sm:px-6 pt-6 pb-14 sm:pt-12 sm:pb-20 lg:px-8">
         <div className="w-full max-w-2xl mx-auto space-y-6 sm:space-y-8">
           {/* Header Title Section */}
           <div className="text-center space-y-3">
@@ -161,7 +161,14 @@ export default function FileSharePage() {
                   maxSize={MAX_FILE_SIZE}
                   icon={
                     <div className="flex items-center justify-center text-foreground mb-1 bg-transparent">
-                      <FileShareDropzoneIcon className="size-11 text-foreground" />
+                      <Image
+                        src="/file-sharing-network-icon.png"
+                        alt=""
+                        width={1244}
+                        height={1238}
+                        unoptimized
+                        className="size-[76px] shrink-0 object-contain"
+                      />
                     </div>
                   }
                   label="Drop any file here to share"
