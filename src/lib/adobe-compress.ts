@@ -1,19 +1,41 @@
 /**
- * adobe-compress.ts
- *
- * Backend compression handler for transient documents.
- * Integrates the official ConvertAPI Python SDK via our server-side client
- * (src/lib/convertapi-client.ts) and private worker (compress-worker/compress.py).
- *
- * Maintains 100% backward compatibility with the existing API route
- * (/api/documents/[id]/compress) and frontend compression page.
+ * Local backend compression handler for transient documents.
+ * Keeps the existing API response compatible with the compression page.
  */
 
-import {
-  getTransientDocument,
-  saveCompressedPdf,
-} from "@/lib/storage";
-import { compressPdfWithConvertApi } from "@/lib/convertapi-client";
+import { PDFDocument } from "pdf-lib";
+import { getTransientDocument, saveCompressedPdf } from "@/lib/storage";
+import { optimizePdf } from "@/lib/pdf-optimizer";
+
+const MAX_PDF_SIZE = 100 * 1024 * 1024;
+const MAX_CONCURRENT_COMPRESSIONS = 1;
+
+let activeCompressions = 0;
+const compressionQueue: Array<() => void> = [];
+
+function acquireCompressionSlot(): Promise<void> {
+  return new Promise((resolve) => {
+    if (activeCompressions < MAX_CONCURRENT_COMPRESSIONS) {
+      activeCompressions++;
+      resolve();
+      return;
+    }
+
+    compressionQueue.push(() => {
+      activeCompressions++;
+      resolve();
+    });
+  });
+}
+
+function releaseCompressionSlot(): void {
+  activeCompressions--;
+  compressionQueue.shift()?.();
+}
+
+function hasPdfSignature(bytes: Buffer): boolean {
+  return bytes.subarray(0, 1024).includes(Buffer.from("%PDF-"));
+}
 
 export type CompressDocumentResult = {
   id: string;
@@ -28,8 +50,7 @@ export type CompressDocumentResult = {
 };
 
 /**
- * Executes PDF compression for an uploaded transient document using ConvertAPI.
- * Server-side cloud-based processing via the official ConvertAPI Python SDK.
+ * Compresses the uploaded PDF locally with the adaptive multi-profile engine.
  */
 export async function compressTransientDocument(
   id: string,
@@ -52,23 +73,62 @@ export async function compressTransientDocument(
   try {
     const originalBytes = document.original;
     const filename = document.metadata.filename;
+    const originalSize = originalBytes.byteLength;
 
-    const result = await compressPdfWithConvertApi(originalBytes, filename);
+    if (originalSize === 0) {
+      throw new Error("The PDF file is empty.");
+    }
+    if (originalSize > MAX_PDF_SIZE) {
+      throw new Error("PDFs must be 100 MB or smaller.");
+    }
+    if (!hasPdfSignature(originalBytes)) {
+      throw new Error("The selected file does not contain a valid PDF signature.");
+    }
 
-    // Save compressed result to memory registry
-    saveCompressedPdf(id, result.compressedBytes, result.stats);
+    await acquireCompressionSlot();
+    try {
+      let pageCount: number;
+      try {
+        const originalPdf = await PDFDocument.load(originalBytes);
+        pageCount = originalPdf.getPageCount();
+      } catch (error) {
+        const message = error instanceof Error ? error.message.toLowerCase() : "";
+        if (message.includes("encrypt") || message.includes("password")) {
+          throw new Error("This PDF is password-protected. Please unlock the file before compressing.");
+        }
+        throw new Error("This PDF file is corrupted or not a valid document.");
+      }
 
-    return {
-      id,
-      filename,
-      originalSize: result.stats.originalSize,
-      compressedSize: result.stats.compressedSize,
-      bytesSaved: result.stats.bytesSaved,
-      percentage: result.stats.percentage,
-      downloadUrl: `/api/documents/${id}/compressed?download=1`,
-      method: result.stats.method,
-      pageCount: result.stats.pageCount ?? 1,
-    };
+      const candidateBytes = await optimizePdf(originalBytes);
+      const compressedBytes = candidateBytes.byteLength < originalSize ? candidateBytes : originalBytes;
+      const compressedSize = compressedBytes.byteLength;
+      const bytesSaved = originalSize - compressedSize;
+      const stats = {
+        originalSize,
+        compressedSize,
+        bytesSaved,
+        percentage: originalSize > 0 ? Number(((bytesSaved / originalSize) * 100).toFixed(1)) : 0,
+        compressedAt: new Date().toISOString(),
+        method: bytesSaved > 0 ? "local-adaptive-pdf-optimizer" : "local-no-size-reduction",
+        pageCount,
+      };
+
+      saveCompressedPdf(id, compressedBytes, stats);
+
+      return {
+        id,
+        filename,
+        originalSize,
+        compressedSize,
+        bytesSaved,
+        percentage: stats.percentage,
+        downloadUrl: `/api/documents/${id}/compressed?download=1`,
+        method: stats.method,
+        pageCount,
+      };
+    } finally {
+      releaseCompressionSlot();
+    }
   } finally {
     document.processing = false;
   }

@@ -7,7 +7,7 @@ import { encodeJpeg } from "./jpeg-encoder";
 // ---------------------------------------------------------------------------
 
 export interface OptimizationProfile {
-  name: "lossless" | "light" | "balanced" | "strong";
+  name: "lossless" | "light" | "balanced" | "strong" | "maximum";
   maxDim: number;
   quality: number;
   minSavingsRatio: number;
@@ -34,7 +34,7 @@ interface PdfTextItem {
   fontName?: string;
 }
 
-export const PROFILES: Record<"lossless" | "light" | "balanced" | "strong", OptimizationProfile> = {
+export const PROFILES: Record<"lossless" | "light" | "balanced" | "strong" | "maximum", OptimizationProfile> = {
   lossless: {
     name: "lossless",
     maxDim: Infinity,
@@ -61,6 +61,13 @@ export const PROFILES: Record<"lossless" | "light" | "balanced" | "strong", Opti
     maxDim: 1100,
     quality: 60,
     minSavingsRatio: 0.15,
+    skipImages: false,
+  },
+  maximum: {
+    name: "maximum",
+    maxDim: 1000,
+    quality: 48,
+    minSavingsRatio: 0.05,
     skipImages: false,
   },
 };
@@ -657,97 +664,36 @@ function hasCompressibleImages(doc: PDFDocument): boolean {
 }
 
 /**
- * Adaptive local size-reduction engine:
- * 1. Generates lossless candidate first.
- * 2. If lossless reaches >= 60%, validates and returns it.
- * 3. If PDF has compressible images, tests balanced profile (target 60-70%).
- * 4. If balanced passes and saves >= 60%, returns it.
- * 5. If balanced passes but saves < 60%, tests strong profile to approach target.
- * 6. Validates every candidate thoroughly. Rejects any that change appearance or text.
- * 7. Never fakes the percentage. Returns real byte counts.
+ * Adaptive local size-reduction engine. It tries lossless, light, balanced,
+ * strong, and maximum profiles where applicable, validates candidates that
+ * improve the current size, and returns the smallest valid PDF without changing its pages or text.
  */
 export async function optimizePdf(inputBytes: Buffer): Promise<Buffer> {
   const originalSize = inputBytes.byteLength;
   const doc = await PDFDocument.load(inputBytes, { ignoreEncryption: true });
   const hasImages = hasCompressibleImages(doc);
+  const profiles = hasImages
+    ? [PROFILES.lossless, PROFILES.light, PROFILES.balanced, PROFILES.strong, PROFILES.maximum]
+    : [PROFILES.lossless];
 
-  // Pass 0: Lossless candidate
-  let losslessBytes: Buffer;
-  try {
-    losslessBytes = await optimizePdfCandidate(inputBytes, PROFILES.lossless);
-  } catch {
-    losslessBytes = inputBytes;
-  }
-
-  const losslessReport = await validateCandidate(inputBytes, losslessBytes);
-  const losslessValid = losslessReport.valid && losslessBytes.byteLength < originalSize;
-
-  if (losslessValid) {
-    const losslessSavings = (originalSize - losslessBytes.byteLength) / originalSize;
-    if (losslessSavings >= 0.60 || !hasImages) {
-      return losslessBytes;
+  let bestBytes = inputBytes;
+  for (const profile of profiles) {
+    let candidate: Buffer;
+    try {
+      candidate = await optimizePdfCandidate(inputBytes, profile);
+    } catch {
+      continue;
     }
-  }
 
-  // If there are no images, lossless is the only safe option
-  if (!hasImages) {
-    return losslessValid ? losslessBytes : inputBytes;
-  }
+    if (candidate.byteLength >= bestBytes.byteLength || candidate.byteLength >= originalSize) {
+      continue;
+    }
 
-  // Pass 1: Try balanced profile (target 60-70%)
-  let balancedBytes: Buffer | null = null;
-  try {
-    balancedBytes = await optimizePdfCandidate(inputBytes, PROFILES.balanced);
-  } catch {
-    balancedBytes = null;
-  }
-
-  if (balancedBytes && balancedBytes.byteLength < originalSize) {
-    const report = await validateCandidate(inputBytes, balancedBytes);
+    const report = await validateCandidate(inputBytes, candidate);
     if (report.valid) {
-      const savings = (originalSize - balancedBytes.byteLength) / originalSize;
-      if (savings >= 0.60) {
-        return balancedBytes;
-      }
-
-      // If balanced saved < 60%, try strong profile to see if we can reach target
-      let strongBytes: Buffer | null = null;
-      try {
-        strongBytes = await optimizePdfCandidate(inputBytes, PROFILES.strong);
-      } catch {
-        strongBytes = null;
-      }
-
-      if (strongBytes && strongBytes.byteLength < balancedBytes.byteLength) {
-        const strongReport = await validateCandidate(inputBytes, strongBytes);
-        if (strongReport.valid) {
-          return strongBytes;
-        }
-      }
-
-      return balancedBytes;
+      bestBytes = candidate;
     }
   }
 
-  // Pass 2: Fall back to light profile
-  let lightBytes: Buffer | null = null;
-  try {
-    lightBytes = await optimizePdfCandidate(inputBytes, PROFILES.light);
-  } catch {
-    lightBytes = null;
-  }
-
-  if (lightBytes && lightBytes.byteLength < originalSize) {
-    const report = await validateCandidate(inputBytes, lightBytes);
-    if (report.valid) {
-      return lightBytes;
-    }
-  }
-
-  // Fall back to lossless if valid and smaller, otherwise original
-  if (losslessValid && losslessBytes.byteLength < originalSize) {
-    return losslessBytes;
-  }
-
-  return inputBytes;
+  return bestBytes;
 }
