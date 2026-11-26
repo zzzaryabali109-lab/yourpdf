@@ -97,7 +97,7 @@ function ListItem({
   return (
     <li {...props}>
       <NavigationMenuLink asChild>
-        <Link href={href} className="flex flex-col gap-1 p-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors group">
+        <Link href={href} className="flex flex-col gap-1 p-2 rounded-md hover:bg-accent hover:text-accent-foreground dark:hover:text-white transition-colors group">
           <div className="text-sm leading-none font-medium flex items-center gap-2">
             {icon}
             <span>{title}</span>
@@ -121,7 +121,7 @@ export function NavigationMenuDemo() {
               <li className="row-span-3">
                 <NavigationMenuLink asChild>
                   <Link
-                    className="from-muted/50 to-muted flex h-full w-full flex-col justify-end rounded-md bg-linear-to-b p-4 no-underline outline-hidden select-none focus:shadow-md"
+                    className="from-muted/50 to-muted flex h-full w-full flex-col justify-end rounded-md bg-linear-to-b p-4 no-underline outline-hidden select-none focus:shadow-md dark:hover:text-white"
                     href="/compress-pdf"
                     prefetch={true}
                   >
@@ -178,10 +178,10 @@ export function NavigationMenuDemo() {
                         <Link
                           href={item.href}
                           style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}
-                          className="flex flex-row items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/60 transition-colors group cursor-pointer"
+                          className="flex flex-row items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/60 dark:hover:bg-white/10 transition-colors group cursor-pointer"
                         >
                           {item.icon}
-                          <span className="text-[13px] font-bold tracking-tight text-foreground/90 group-hover:text-primary transition-colors whitespace-nowrap">
+                          <span className="text-[13px] font-bold tracking-tight text-foreground/90 group-hover:text-primary dark:group-hover:text-white transition-colors whitespace-nowrap">
                             {item.title}
                           </span>
                         </Link>
@@ -203,10 +203,10 @@ export function NavigationMenuDemo() {
                         <Link
                           href={item.href}
                           style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}
-                          className="flex flex-row items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/60 transition-colors group cursor-pointer"
+                          className="flex flex-row items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent/60 dark:hover:bg-white/10 transition-colors group cursor-pointer"
                         >
                           {item.icon}
-                          <span className="text-[13px] font-bold tracking-tight text-foreground/90 group-hover:text-primary transition-colors whitespace-nowrap">
+                          <span className="text-[13px] font-bold tracking-tight text-foreground/90 group-hover:text-primary dark:group-hover:text-white transition-colors whitespace-nowrap">
                             {item.title}
                           </span>
                         </Link>
