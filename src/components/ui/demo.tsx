@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/navigation-menu';
 import {
   JpgToPdfImageIcon,
-  WordToPdfIcon,
+  WordToPdfImageIcon,
   PowerpointToPdfIcon,
   ExcelToPdfIcon,
   HtmlToPdfIcon,
@@ -40,7 +40,7 @@ const convertToPdfItems = [
   {
     title: 'WORD to PDF',
     href: '/word-to-pdf',
-    icon: <WordToPdfIcon />,
+    icon: <WordToPdfImageIcon />,
   },
   {
     title: 'POWERPOINT to PDF',

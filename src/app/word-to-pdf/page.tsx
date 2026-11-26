@@ -8,7 +8,7 @@ import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/fil
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
 import {
-  WordToPdfDropzoneIcon,
+  WordToPdfImageIcon,
   PdfDocumentImageIcon,
 } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Pencil, Share2 } from "lucide-react";
@@ -151,7 +151,7 @@ export default function WordToPdfPage() {
             multiple={false}
             maxFiles={1}
             maxSize={MAX_WORD_SIZE}
-            icon={<WordToPdfDropzoneIcon className="w-20 h-20 sm:w-28 sm:h-28" />}
+            icon={<WordToPdfImageIcon className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />}
             label="Drop your Word file here"
             description="or click to browse from your device"
             note="DOCX, DOC · Up to 100 MB"

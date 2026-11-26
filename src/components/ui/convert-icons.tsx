@@ -61,6 +61,18 @@ export function JpgToPdfImageIcon({ className = 'w-4 h-4 shrink-0 object-contain
   );
 }
 
+export function WordToPdfImageIcon({ className = 'w-5 h-5 shrink-0 object-contain' }: { className?: string }) {
+  return (
+    <Image
+      src="/word-to-pdf-icon.png"
+      alt=""
+      width={1704}
+      height={772}
+      className={className}
+    />
+  );
+}
+
 export function PdfDocumentImageIcon({ className = 'w-4 h-4 shrink-0 object-contain' }: { className?: string }) {
   return (
     <Image
