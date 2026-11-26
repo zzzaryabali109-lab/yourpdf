@@ -144,7 +144,7 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Desktop Header (>= 768px): Centered Navigation Menu + Right Theme Toggle */}
       <div className="relative hidden md:flex h-16 w-full items-center justify-center px-4 sm:px-6">
         <Link
@@ -152,7 +152,7 @@ export function SiteHeader() {
           className="absolute left-4 sm:left-6 top-1/2 z-10 -translate-y-1/2 transition-opacity hover:opacity-90"
           aria-label="YourPDF home"
         >
-          <YourPdfLogo className="h-12 w-auto max-w-[200px]" />
+          <YourPdfLogo className="h-14 w-auto max-w-[220px]" />
         </Link>
         <NavigationMenuDemo />
         <div className="absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 flex items-center z-10">
@@ -179,7 +179,7 @@ export function SiteHeader() {
             aria-label="YourPDF home"
             onClick={() => setMobileOpen(false)}
           >
-            <YourPdfLogo className="h-10 w-auto max-w-[150px]" />
+            <YourPdfLogo className="h-11 w-auto max-w-[165px]" />
           </Link>
         </div>
 
@@ -215,7 +215,7 @@ export function SiteHeader() {
                 aria-label="YourPDF home"
                 onClick={() => setMobileOpen(false)}
               >
-                <YourPdfLogo className="h-9 w-auto max-w-[135px]" />
+                <YourPdfLogo className="h-10 w-auto max-w-[150px]" />
               </Link>
               <button
                 type="button"
