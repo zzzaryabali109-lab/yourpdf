@@ -1524,7 +1524,11 @@ export default function Workspace({ documentId }: { documentId: string }) {
     const width = Math.abs(end.x - start.x);
     const height = Math.abs(end.y - start.y);
     const isLine = activeTool === "shape" && (shapeKind === "line" || shapeKind === "arrow");
-    const minDrag = (width > 8 && height > 8) || (isLine && Math.hypot(width, height) > 10);
+    const isAreaMarkup = activeTool === "highlight" || activeTool === "redact";
+    const minDrag = (isLine && Math.hypot(width, height) > 10)
+      || (isAreaMarkup
+        ? Math.max(width, height) > 8 && Math.min(width, height) > 2
+        : width > 8 && height > 8);
     if (activeTool === "addText" || activeTool === "comment") {
       const point = screenPointToPdf(start, pageTransformRef.current, renderScale);
       const box = activeTool === "comment" ? { left: start.x, top: start.y, width: 220, height: 88 } : { left: start.x, top: start.y, width: 240, height: 30 };
@@ -2469,7 +2473,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
     const currentEdits = Object.values(currentEditMap).filter((edit) => edit.manual || edit.value !== edit.text);
 
     if (!currentEdits.length && !documentMarkups.length && !addedBlankPages.length) {
-      downloadOriginal();
+      downloadCurrentPdf();
       return;
     }
 
@@ -2536,6 +2540,10 @@ export default function Workspace({ documentId }: { documentId: string }) {
   const pageEdits = Object.values(edits).filter((edit) => edit.pageNumber === pageNumber);
   const pageHasEdits = pageEdits.length > 0;
   const pageHasMarkups = pageMarkups.length > 0;
+  const hasPendingWorkspaceChanges = Object.values(edits).some((edit) => edit.manual || edit.value !== edit.text)
+    || Boolean(editingKey && draftRun && (draftRun.manual || draftText !== draftRun.text))
+    || documentMarkups.length > 0
+    || addedBlankPages.length > 0;
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
     else void stageRef.current?.requestFullscreen?.();
@@ -2614,7 +2622,7 @@ export default function Workspace({ documentId }: { documentId: string }) {
             >
               <Share2 size={16} aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="sm" aria-label={viewMode === "clean" ? "Download cleaned PDF" : "Download original PDF"} title={viewMode === "clean" ? "Download cleaned PDF" : "Download original PDF"} onClick={downloadCurrentPdf} disabled={!metadata || (viewMode === "clean" && ocrStatus.status !== "completed")}><Download size={16} aria-hidden="true" /></Button>
+            <Button variant="ghost" size="sm" aria-label={hasPendingWorkspaceChanges ? "Download edited PDF" : viewMode === "clean" ? "Download cleaned PDF" : "Download original PDF"} title={hasPendingWorkspaceChanges ? "Download edited PDF" : viewMode === "clean" ? "Download cleaned PDF" : "Download original PDF"} onClick={() => void exportPdfDocument()} disabled={!metadata || (viewMode === "clean" && ocrStatus.status !== "completed")}><Download size={16} aria-hidden="true" /></Button>
             <Button variant="ghost" size="sm" aria-label="Open original PDF for printing" title="Print original PDF" onClick={printOriginal} disabled={!metadata}><Printer size={16} aria-hidden="true" /></Button>
             <Button variant="ghost" size="sm" aria-label="Toggle document details" title="Document details and extracted text" onClick={() => setShowDetails((shown) => !shown)}><PanelRight size={16} aria-hidden="true" /></Button>
             <div className={styles.topbarThemeToggle}>
