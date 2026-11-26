@@ -8,7 +8,8 @@ import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/fil
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
 import { CompressPdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
-import { CheckCircle2, Download, Pencil } from "lucide-react";
+import { ShareModalView } from "@/components/ui/share-modal-view";
+import { CheckCircle2, Download, Pencil, Share2 } from "lucide-react";
 import styles from "../home.module.css";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
@@ -37,6 +38,7 @@ export default function CompressPdfPage() {
   const [compressionResult, setCompressionResult] = useState<CompressionResult | null>(null);
   const [customFileName, setCustomFileName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogView, setDialogView] = useState<"result" | "share">("result");
   const [compressError, setCompressError] = useState<string | null>(null);
 
   const uploadFile: FileDropzoneUpload = (item, { onProgress, signal }) =>
@@ -126,6 +128,7 @@ export default function CompressPdfPage() {
 
   const handleReset = () => {
     setIsDialogOpen(false);
+    setDialogView("result");
     setUploadedDocument(null);
     setCompressionResult(null);
     setCustomFileName("");
@@ -192,14 +195,36 @@ export default function CompressPdfPage() {
       </main>
 
       {/* Compression Result Modal Popup */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setDialogView("result");
+        }}
+      >
         <DialogContent
-          title="PDF Compressed"
-          description="Your document has been optimized and is ready to download."
+          title={dialogView === "share" ? "Share Compressed PDF" : "PDF Compressed"}
+          description={dialogView === "share" ? "Your compressed PDF is ready to share with an instant link." : "Your document has been optimized and is ready to download."}
           className="sm:max-w-[440px]"
         >
           {compressionResult && (() => {
             const finalDownloadName = `${customFileName.trim().replace(/\.pdf$/i, "") || "document-compressed"}.pdf`;
+            const downloadHref = `${compressionResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`;
+
+            if (dialogView === "share") {
+              return (
+                <ShareModalView
+                  filename={finalDownloadName}
+                  fileIcon={<PdfFileBadgeIcon className="size-11 shrink-0" />}
+                  fileSize={compressionResult.compressedSize}
+                  downloadHref={downloadHref}
+                  onBackToDownload={() => setDialogView("result")}
+                  onReset={handleReset}
+                  resetLabel="Compress Another PDF"
+                />
+              );
+            }
+
             return (
               <div className="space-y-4 pt-1">
                 {/* File details card */}
@@ -272,7 +297,7 @@ export default function CompressPdfPage() {
                 {/* Actions: Download Button & Compress Another */}
                 <div className="space-y-2">
                   <a
-                    href={`${compressionResult.downloadUrl}&name=${encodeURIComponent(finalDownloadName)}`}
+                    href={downloadHref}
                     download={finalDownloadName}
                     className="block w-full no-underline"
                   >
@@ -281,14 +306,25 @@ export default function CompressPdfPage() {
                       Download Compressed PDF
                     </Button>
                   </a>
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    onClick={handleReset}
-                    className="w-full text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Compress Another PDF
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={handleReset}
+                      className="flex-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Compress Another PDF
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={() => setDialogView("share")}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Share2 className="size-3.5" />
+                      File Share
+                    </Button>
+                  </div>
                 </div>
               </div>
             );
