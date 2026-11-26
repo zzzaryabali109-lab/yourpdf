@@ -5,7 +5,7 @@ import Button from "@/components/arc/button/button";
 import type { ComparisonResult, DiffBox } from "./pdf-diff-engine";
 import { comparePdfDocuments } from "./pdf-diff-engine";
 import { ArrowLeft, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from "pdfjs-dist";
 import styles from "./compare.module.css";
 
 interface CompareViewerProps {
@@ -22,12 +22,27 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
 
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [documentsReady, setDocumentsReady] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [renderedPreview, setRenderedPreview] = useState<{ file1: File; file2: File; page: number } | null>(null);
 
   const canvas1Ref = useRef<HTMLCanvasElement | null>(null);
   const canvas2Ref = useRef<HTMLCanvasElement | null>(null);
 
   const doc1ProxyRef = useRef<PDFDocumentProxy | null>(null);
   const doc2ProxyRef = useRef<PDFDocumentProxy | null>(null);
+  const renderTasksRef = useRef<RenderTask[]>([]);
+  const renderRequestRef = useRef(0);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      for (const task of renderTasksRef.current) task.cancel();
+      renderTasksRef.current = [];
+    };
+  }, []);
 
   // Run the diff comparison on mount
   useEffect(() => {
@@ -81,12 +96,17 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
           pdfjs.getDocument({ data: bytes2 }).promise,
         ]);
 
-        if (!isCancelled) {
-          doc1ProxyRef.current = p1;
-          doc2ProxyRef.current = p2;
-        }
+        if (isCancelled) return;
+
+        doc1ProxyRef.current = p1;
+        doc2ProxyRef.current = p2;
+        setDocumentsReady(true);
+        setPreviewError(null);
       } catch (e) {
         console.error("Failed to load PDF proxies for rendering", e);
+        if (!isCancelled) {
+          setPreviewError("Could not load the PDF previews. Please try uploading the files again.");
+        }
       }
     }
 
@@ -99,77 +119,89 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
 
   // Render current page onto both canvases at crisp high resolution
   const renderCurrentPage = useCallback(async () => {
-    if (!doc1ProxyRef.current && !doc2ProxyRef.current) return;
+    const renderRequest = ++renderRequestRef.current;
+
+    const previousTasks = renderTasksRef.current;
+    renderTasksRef.current = [];
+    for (const task of previousTasks) task.cancel();
+    await Promise.allSettled(previousTasks.map((task) => task.promise));
+
+    if (renderRequest !== renderRequestRef.current || !isMountedRef.current || !documentsReady) return;
 
     const d1 = doc1ProxyRef.current;
     const d2 = doc2ProxyRef.current;
+    if (!d1 || !d2) return;
     const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
     const renderScale = 1.6 * dpr;
 
-    // Render Doc 1 page
-    if (d1 && canvas1Ref.current) {
-      const c1 = canvas1Ref.current;
-      if (currentPage <= d1.numPages) {
-        const page1 = await d1.getPage(currentPage);
-        const viewport1 = page1.getViewport({ scale: renderScale });
-        c1.width = viewport1.width;
-        c1.height = viewport1.height;
-        const ctx1 = c1.getContext("2d");
-        if (ctx1) {
-          ctx1.fillStyle = "#ffffff";
-          ctx1.fillRect(0, 0, c1.width, c1.height);
-          await page1.render({ canvas: c1, canvasContext: ctx1, viewport: viewport1 }).promise;
-        }
-      } else {
-        c1.width = 600 * dpr;
-        c1.height = 800 * dpr;
-        const ctx1 = c1.getContext("2d");
-        if (ctx1) {
-          ctx1.fillStyle = "#ffffff";
-          ctx1.fillRect(0, 0, c1.width, c1.height);
-          ctx1.fillStyle = "#94a3b8";
-          ctx1.font = `${16 * dpr}px system-ui, sans-serif`;
-          ctx1.textAlign = "center";
-          ctx1.fillText(`No page ${currentPage} in original document`, c1.width / 2, c1.height / 2);
-        }
-      }
-    }
+    try {
+      const [page1, page2]: [PDFPageProxy | null, PDFPageProxy | null] = await Promise.all([
+        currentPage <= d1.numPages ? d1.getPage(currentPage) : Promise.resolve(null),
+        currentPage <= d2.numPages ? d2.getPage(currentPage) : Promise.resolve(null),
+      ]);
+      if (renderRequest !== renderRequestRef.current || !isMountedRef.current) return;
 
-    // Render Doc 2 page
-    if (d2 && canvas2Ref.current) {
-      const c2 = canvas2Ref.current;
-      if (currentPage <= d2.numPages) {
-        const page2 = await d2.getPage(currentPage);
-        const viewport2 = page2.getViewport({ scale: renderScale });
-        c2.width = viewport2.width;
-        c2.height = viewport2.height;
-        const ctx2 = c2.getContext("2d");
-        if (ctx2) {
-          ctx2.fillStyle = "#ffffff";
-          ctx2.fillRect(0, 0, c2.width, c2.height);
-          await page2.render({ canvas: c2, canvasContext: ctx2, viewport: viewport2 }).promise;
+      const tasks: RenderTask[] = [];
+      const renderPage = (page: PDFPageProxy | null, canvas: HTMLCanvasElement | null, missingPageLabel: string) => {
+        if (!canvas) return;
+
+        if (page) {
+          const viewport = page.getViewport({ scale: renderScale });
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          const context = canvas.getContext("2d");
+          if (!context) throw new Error("Could not create a canvas for the PDF preview.");
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          tasks.push(page.render({ canvas, canvasContext: context, viewport }));
+          return;
         }
-      } else {
-        c2.width = 600 * dpr;
-        c2.height = 800 * dpr;
-        const ctx2 = c2.getContext("2d");
-        if (ctx2) {
-          ctx2.fillStyle = "#ffffff";
-          ctx2.fillRect(0, 0, c2.width, c2.height);
-          ctx2.fillStyle = "#94a3b8";
-          ctx2.font = `${16 * dpr}px system-ui, sans-serif`;
-          ctx2.textAlign = "center";
-          ctx2.fillText(`No page ${currentPage} in modified document`, c2.width / 2, c2.height / 2);
-        }
+
+        canvas.width = 600 * dpr;
+        canvas.height = 800 * dpr;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("Could not create a canvas for the PDF preview.");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#94a3b8";
+        context.font = `${16 * dpr}px system-ui, sans-serif`;
+        context.textAlign = "center";
+        context.fillText(missingPageLabel, canvas.width / 2, canvas.height / 2);
+      };
+
+      renderPage(page1, canvas1Ref.current, `No page ${currentPage} in original document`);
+      renderPage(page2, canvas2Ref.current, `No page ${currentPage} in modified document`);
+      renderTasksRef.current = tasks;
+      const renderResults = await Promise.allSettled(tasks.map((task) => task.promise));
+      const failedRender = renderResults.find((result) => result.status === "rejected");
+      if (failedRender?.status === "rejected") throw failedRender.reason;
+
+      if (renderRequest === renderRequestRef.current && isMountedRef.current) {
+        setRenderedPreview({ file1, file2, page: currentPage });
+        setPreviewError(null);
       }
+    } catch (err) {
+      if (renderRequest === renderRequestRef.current && isMountedRef.current) {
+        setPreviewError(err instanceof Error ? err.message : "Could not render the PDF previews.");
+      }
+    } finally {
+      if (renderRequest === renderRequestRef.current) renderTasksRef.current = [];
     }
-  }, [currentPage]);
+  }, [currentPage, documentsReady, file1, file2]);
+
+  const previewIsCurrent =
+    renderedPreview?.file1 === file1 &&
+    renderedPreview.file2 === file2 &&
+    renderedPreview.page === currentPage;
 
   useEffect(() => {
-    if (!loading && comparison) {
-      renderCurrentPage();
-    }
-  }, [loading, comparison, currentPage, renderCurrentPage]);
+    if (loading || !comparison || !documentsReady) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      void renderCurrentPage();
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [loading, comparison, documentsReady, currentPage, renderCurrentPage]);
 
   const pageData = comparison?.pages.find((p) => p.pageNumber === currentPage);
 
@@ -272,6 +304,12 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
         </div>
       </div>
 
+      {previewError && (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive" role="alert">
+          {previewError}
+        </div>
+      )}
+
       {/* Side-by-Side 2 PDF Previews (Full width, clean background, no grey box) */}
       <div className={styles.splitViewContainer}>
         {/* Left Column: Original Document */}
@@ -290,7 +328,7 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
 
             {/* Difference Highlight Overlays for Document 1 */}
             <div className={styles.highlightLayer}>
-              {pageData?.diffsDoc1.map((box: DiffBox) => (
+              {previewIsCurrent && pageData?.diffsDoc1.map((box: DiffBox) => (
                 <div
                   key={box.id}
                   className={box.type === "modified" ? styles.diffHighlightModified : styles.diffHighlightDeleted}
@@ -323,7 +361,7 @@ export function CompareViewer({ file1, file2, onReset }: CompareViewerProps) {
 
             {/* Difference Highlight Overlays for Document 2 */}
             <div className={styles.highlightLayer}>
-              {pageData?.diffsDoc2.map((box: DiffBox) => (
+              {previewIsCurrent && pageData?.diffsDoc2.map((box: DiffBox) => (
                 <div
                   key={box.id}
                   className={box.type === "modified" ? styles.diffHighlightModified : styles.diffHighlightAdded}
