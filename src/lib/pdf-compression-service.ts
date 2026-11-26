@@ -13,21 +13,8 @@ import { getTransientDocument, saveCompressedPdf } from "@/lib/storage";
 
 const MAX_PDF_SIZE = 100 * 1024 * 1024;
 const MAX_CONCURRENT_COMPRESSIONS = 1;
-const GHOSTSCRIPT_TIME_BUDGET_MS = 90_000;
+const LOCAL_ENGINE_TIMEOUT_MS = 120_000;
 const execFileAsync = promisify(execFile);
-
-const GHOSTSCRIPT_PROFILES = [
-  // The upstream Quartz filter scales images to 90% and uses JPEG quality
-  // -0.70. Ghostscript has no relative image-scale setting, so start near
-  // 90% of a 300 DPI scan, then lower the ceiling only if needed.
-  { dpi: 270, qFactor: 0.76 },
-  { dpi: 240, qFactor: 0.76 },
-  { dpi: 210, qFactor: 0.76 },
-  { dpi: 180, qFactor: 0.76 },
-  { dpi: 150, qFactor: 0.76 },
-  { dpi: 120, qFactor: 0.76 },
-  { dpi: 96, qFactor: 0.76 },
-] as const;
 
 let activeCompressions = 0;
 const compressionQueue: Array<() => void> = [];
@@ -128,98 +115,70 @@ async function validateCompressionCandidate(
   }
 }
 
-async function compressWithLocalImageFilter(inputBytes: Buffer): Promise<Buffer | null> {
+type LocalEngineStats = {
+  changed: boolean;
+  originalBytes: number;
+  compressedBytes: number;
+  imagesFound: number;
+  imagesRewritten: number;
+  profile: { scale: number; jpegQuality: number } | null;
+};
+
+async function compressWithLocalImageEngine(
+  inputBytes: Buffer,
+): Promise<{ bytes: Buffer | null; stats: LocalEngineStats }> {
   const workingDirectory = await mkdtemp(path.join(os.tmpdir(), "yourpdf-compress-"));
   const inputPath = path.join(workingDirectory, "input.pdf");
   const outputPath = path.join(workingDirectory, "output.pdf");
-  const startedAt = Date.now();
-  let bestCandidate: Buffer | null = null;
-  let successfulProfiles = 0;
-  let lastFailure: unknown;
+  const scriptPath = path.join(process.cwd(), "scripts", "pdf_compress_engine.py");
+  const pythonExec = process.env.PYTHON_BIN || (process.platform === "win32" ? "python" : "python3");
 
   try {
     await writeFile(inputPath, inputBytes, { mode: 0o600 });
-
-    for (const profile of GHOSTSCRIPT_PROFILES) {
-      const remainingTime = GHOSTSCRIPT_TIME_BUDGET_MS - (Date.now() - startedAt);
-      if (remainingTime < 1_000) break;
-
-      await rm(outputPath, { force: true }).catch(() => undefined);
-      const imageDictionary = `<< /QFactor ${profile.qFactor} /Blend 1 /HSamples [2 1 1 2] /VSamples [2 1 1 2] >>`;
-      const parameters = `<< /ColorImageDict ${imageDictionary} /GrayImageDict ${imageDictionary} /LockDistillerParams true >> setdistillerparams`;
-      const args = [
-        "-dSAFER",
-        "-dBATCH",
-        "-dNOPAUSE",
-        "-dQUIET",
-        "-dPDFSTOPONERROR",
-        "-sDEVICE=pdfwrite",
-        "-dCompatibilityLevel=1.7",
-        "-dAutoRotatePages=/None",
-        "-dPreserveAnnots=true",
-        "-dCompressFonts=true",
-        "-dCompressPages=true",
-        "-dDetectDuplicateImages=true",
-        "-dPassThroughJPEGImages=false",
-        "-dPassThroughJPXImages=false",
-        "-dAutoFilterColorImages=false",
-        "-dAutoFilterGrayImages=false",
-        "-dColorImageFilter=/DCTEncode",
-        "-dGrayImageFilter=/DCTEncode",
-        "-dDownsampleColorImages=true",
-        "-dDownsampleGrayImages=true",
-        `-dColorImageResolution=${profile.dpi}`,
-        `-dGrayImageResolution=${profile.dpi}`,
-        "-dColorImageDownsampleThreshold=1.0",
-        "-dGrayImageDownsampleThreshold=1.0",
-        "-dColorImageDownsampleType=/Bicubic",
-        "-dGrayImageDownsampleType=/Bicubic",
-        "-dDownsampleMonoImages=true",
-        `-dMonoImageResolution=${profile.dpi}`,
-        "-dMonoImageDownsampleThreshold=1.0",
-        `-sOutputFile=${outputPath}`,
-        "-c",
-        parameters,
-        "-f",
-        inputPath,
-      ];
-
-      try {
-        await execFileAsync("gs", args, {
-          timeout: remainingTime,
-          maxBuffer: 2 * 1024 * 1024,
-          windowsHide: true,
-        });
-        successfulProfiles++;
-
-        const candidate = await readFile(outputPath);
-        if (!hasPdfSignature(candidate) || candidate.byteLength >= inputBytes.byteLength) continue;
-
-        if (!await validateCompressionCandidate(inputBytes, candidate)) continue;
-
-        if (!bestCandidate || candidate.byteLength < bestCandidate.byteLength) {
-          bestCandidate = candidate;
-        }
-
-        // Stop once the requested reduction range is reached to avoid
-        // sacrificing additional image detail.
-        if (candidate.byteLength <= inputBytes.byteLength * 0.2) break;
-      } catch (error) {
-        // The Linux deployment installs Ghostscript. Surface a clear message
-        // instead of silently using a different compression implementation.
-        if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
-          throw new Error("The local PDF compression engine is unavailable. Please redeploy the service.");
-        }
-        lastFailure = error;
+    let stdout: string;
+    try {
+      ({ stdout } = await execFileAsync(pythonExec, [scriptPath, inputPath, outputPath], {
+        timeout: LOCAL_ENGINE_TIMEOUT_MS,
+        maxBuffer: 2 * 1024 * 1024,
+        windowsHide: true,
+      }));
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        throw new Error("The local PDF compression engine is unavailable. Please redeploy the service.");
       }
-    }
-
-    if (successfulProfiles === 0 && lastFailure) {
-      const detail = lastFailure instanceof Error ? lastFailure.message : "unknown Ghostscript error";
+      const detail = error instanceof Error ? error.message : "unknown Python engine error";
       throw new Error(`The local PDF compression engine could not process this file: ${detail}`);
     }
 
-    return bestCandidate;
+    let stats: LocalEngineStats;
+    try {
+      stats = JSON.parse(stdout.trim()) as LocalEngineStats;
+    } catch {
+      throw new Error("The local PDF compression engine returned an invalid result. Please redeploy the service.");
+    }
+
+    let candidate: Buffer | null = null;
+    try {
+      candidate = await readFile(outputPath);
+    } catch {
+      // The Python engine omits the output when it cannot make it smaller.
+    }
+
+    if (!candidate || !hasPdfSignature(candidate) || candidate.byteLength >= inputBytes.byteLength) {
+      candidate = null;
+    } else if (!await validateCompressionCandidate(inputBytes, candidate)) {
+      candidate = null;
+    }
+
+    console.info("[pdf-compression] local image engine", JSON.stringify({
+      originalBytes: inputBytes.byteLength,
+      outputBytes: candidate?.byteLength ?? inputBytes.byteLength,
+      imagesFound: stats.imagesFound,
+      imagesRewritten: stats.imagesRewritten,
+      profile: stats.profile,
+    }));
+
+    return { bytes: candidate, stats };
   } finally {
     await rm(workingDirectory, { recursive: true, force: true }).catch(() => undefined);
   }
@@ -238,7 +197,7 @@ export type CompressDocumentResult = {
 };
 
 /**
- * Compresses a PDF with a Quartz-filter-inspired local image recompression pass.
+ * Compresses embedded raster images with the local image-stream engine.
  */
 export async function compressTransientDocument(
   id: string,
@@ -288,10 +247,16 @@ export async function compressTransientDocument(
         throw new Error("This PDF file is corrupted or not a valid document.");
       }
 
-      const candidateBytes = await compressWithLocalImageFilter(originalBytes);
-      const compressedBytes = candidateBytes && candidateBytes.byteLength < originalSize
-        ? candidateBytes
-        : originalBytes;
+      const { bytes: candidateBytes, stats: engineStats } = await compressWithLocalImageEngine(originalBytes);
+      if (!candidateBytes || candidateBytes.byteLength >= originalSize) {
+        throw new Error(
+          engineStats.changed
+            ? "The PDF compression result failed validation, so the original file was kept."
+            : "The local engine could not make this PDF smaller. It may contain no compressible images, already-optimized images, or image types this engine cannot safely rewrite.",
+        );
+      }
+
+      const compressedBytes = candidateBytes;
       const compressedSize = compressedBytes.byteLength;
       const bytesSaved = originalSize - compressedSize;
       const stats = {
@@ -300,7 +265,7 @@ export async function compressTransientDocument(
         bytesSaved,
         percentage: originalSize > 0 ? Number(((bytesSaved / originalSize) * 100).toFixed(1)) : 0,
         compressedAt: new Date().toISOString(),
-        method: bytesSaved > 0 ? "quartz-filter-inspired-local-compression" : "local-no-size-reduction",
+        method: bytesSaved > 0 ? "local-pdf-image-stream-engine" : "local-no-size-reduction",
         pageCount,
       };
 
