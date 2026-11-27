@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteSharedFile, getSharedFile, incrementDownloadCount, openSharedFile, sharedFileExists } from "@/lib/share-storage";
 
-export const runtime = "nodejs";
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
