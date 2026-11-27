@@ -8,6 +8,11 @@ import {
   WordConversionError,
   sanitizeErrorMessage,
 } from "@/lib/word-converter";
+import {
+  unlockPdfDocument,
+  validatePdfForUnlocking,
+  UnlockPdfError,
+} from "@/lib/unlock-pdf-service";
 
 const MAX_DOCUMENT_SIZE = 100 * 1024 * 1024;
 const MAX_MULTIPART_SIZE = MAX_DOCUMENT_SIZE + 1024 * 1024;
@@ -159,7 +164,50 @@ export async function POST(request: Request) {
     if (!bytes.subarray(0, 1024).includes(Buffer.from("%PDF-"))) {
       return NextResponse.json({ error: "The selected file does not contain a valid PDF header." }, { status: 415 });
     }
-    finalPdfBuffer = bytes;
+
+    const passwordRaw = form.get("password");
+    const password = typeof passwordRaw === "string" ? passwordRaw : undefined;
+
+    const validation = validatePdfForUnlocking(bytes, filename);
+    if (validation.hasEncryptDictionary || (password && password.trim() !== "")) {
+      try {
+        const unlockResult = await unlockPdfDocument(bytes, filename, password?.trim());
+        finalPdfBuffer = unlockResult.pdfBuffer;
+      } catch (error) {
+        if (error instanceof UnlockPdfError) {
+          if (error.code === "PASSWORD_REQUIRED") {
+            return NextResponse.json(
+              {
+                error: "This PDF document is password-protected. Please enter the password to open it.",
+                code: "PASSWORD_REQUIRED",
+                filename,
+              },
+              { status: 401 },
+            );
+          }
+          if (error.code === "INVALID_PASSWORD") {
+            return NextResponse.json(
+              {
+                error: "The password entered is incorrect. Please check the password and try again.",
+                code: "INVALID_PASSWORD",
+                filename,
+              },
+              { status: 403 },
+            );
+          }
+          return NextResponse.json(
+            { error: sanitizeErrorMessage(error.message) },
+            { status: error.statusCode || 500 },
+          );
+        }
+        return NextResponse.json(
+          { error: "Failed to open password-protected PDF. Please try again." },
+          { status: 500 },
+        );
+      }
+    } else {
+      finalPdfBuffer = bytes;
+    }
   }
 
   const metadata: UploadMetadata = {

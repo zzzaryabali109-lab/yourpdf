@@ -10,7 +10,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Menu,
   X,
-  FileText,
   ChevronRight,
   ChevronDown,
   ShieldCheck,
@@ -36,6 +35,7 @@ import {
   ComparePdfIcon,
   CompressPdfImageIcon,
   FileShareDropzoneIcon,
+  PdfDocumentIcon,
 } from "@/components/ui/convert-icons";
 
 interface MobileDropdownSection {
@@ -267,8 +267,8 @@ export function SiteHeader() {
                   }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="size-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <FileText className="size-3.5" />
+                  <div className="size-7 flex items-center justify-center shrink-0">
+                    <PdfDocumentIcon className="size-5 shrink-0" />
                   </div>
                   <span>Edit PDF & Word (Workspace)</span>
                 </div>
