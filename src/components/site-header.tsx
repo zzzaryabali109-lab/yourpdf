@@ -45,7 +45,6 @@ interface MobileDropdownSection {
   items: {
     title: string;
     href: string;
-    desc?: string;
     icon: React.ReactNode;
   }[];
 }
@@ -79,10 +78,10 @@ const mobileSections: MobileDropdownSection[] = [
     title: "PDF Tools & Optimization",
     icon: <SlidersHorizontal className="size-4 text-violet-600 dark:text-violet-400 shrink-0" />,
     items: [
-      { title: "Compress PDF", href: "/compress-pdf", desc: "Reduce file size", icon: <CompressPdfImageIcon className="size-5 shrink-0 object-contain" /> },
-      { title: "Merge PDF", href: "/merge-pdf", desc: "Combine PDFs", icon: <MergePdfImageIcon className="size-5 shrink-0 object-contain" /> },
-      { title: "Split PDF", href: "/split-pdf", desc: "Split & remove pages", icon: <SplitPdfImageIcon className="size-5 shrink-0 object-contain" /> },
-      { title: "OCR PDF", href: "/ocr-pdf", desc: "Searchable text", icon: <OcrPdfImageIcon className="size-5 shrink-0 object-contain" /> },
+      { title: "Compress PDF", href: "/compress-pdf", icon: <CompressPdfImageIcon className="size-5 shrink-0 object-contain" /> },
+      { title: "Merge PDF", href: "/merge-pdf", icon: <MergePdfImageIcon className="size-5 shrink-0 object-contain" /> },
+      { title: "Split PDF", href: "/split-pdf", icon: <SplitPdfImageIcon className="size-5 shrink-0 object-contain" /> },
+      { title: "OCR PDF", href: "/ocr-pdf", icon: <OcrPdfImageIcon className="size-5 shrink-0 object-contain" /> },
     ],
   },
   {
@@ -112,9 +111,7 @@ function YourPdfLogo({ className }: { className: string }) {
 
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    convertToPdf: true,
-  });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
 
@@ -201,14 +198,14 @@ export function SiteHeader() {
 
           {/* Side Drawer Panel with fast slide-in animation from LEFT */}
           <aside
-            className="fixed inset-y-0 left-0 z-[10000] w-[min(320px,85vw)] h-full bg-white border-r border-border/60 shadow-2xl flex flex-col animate-in slide-in-from-left duration-200 ease-out"
+            className="fixed inset-y-0 left-0 z-[10000] flex h-dvh max-h-dvh w-[min(340px,88vw)] flex-col border-r border-border bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground shadow-2xl animate-in slide-in-from-left duration-200 ease-out dark:bg-black"
             role="dialog"
             aria-modal="true"
             aria-label="Mobile navigation"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="flex items-center justify-between h-14 px-4 border-b border-border/50 shrink-0 bg-white">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4 bg-background dark:bg-black">
               <Link
                 href="/"
                 className="flex items-center transition-opacity hover:opacity-90 cursor-pointer"
@@ -220,7 +217,7 @@ export function SiteHeader() {
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="flex size-8 items-center justify-center rounded-lg border border-border/70 bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted active:scale-95 transition-all cursor-pointer"
+                className="flex size-9 items-center justify-center rounded-lg border border-border bg-muted/50 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95 cursor-pointer"
                 aria-label="Close navigation menu"
               >
                 <X className="size-4.5" />
@@ -228,56 +225,56 @@ export function SiteHeader() {
             </div>
 
             {/* Drawer Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-3.5 bg-white [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
-              {/* Featured: File Share Link */}
+            <div className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-3.5 bg-background dark:bg-black [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
+              {/* Quick links */}
               <Link
                 href="/file-share"
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center justify-between p-3 rounded-xl bg-white border-0 outline-none ring-0 transition-all cursor-pointer group ${pathname === "/file-share"
-                  ? "text-primary font-bold"
-                  : "text-foreground hover:bg-muted/30"
+                className={`group flex min-h-12 items-center justify-between rounded-xl border px-3 transition-colors cursor-pointer ${pathname === "/file-share"
+                  ? "border-primary/20 bg-primary/10 text-primary"
+                  : "border-border/70 bg-card/50 text-foreground hover:bg-accent"
                   }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="size-8.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-2xs">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <FileShareDropzoneIcon className="size-4 shrink-0" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold">
                       <span>File Share</span>
-                      <span className="text-[9px] uppercase font-extrabold px-1.5 py-0.2 rounded-md bg-primary text-primary-foreground">
+                      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase text-muted-foreground">
                         48h
                       </span>
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="truncate text-[11px] text-muted-foreground">
                       Share files up to 100 MB via instant link
                     </p>
                   </div>
                 </div>
-                <ChevronRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
 
-              {/* Direct: PDF & Word Workspace */}
+              {/* Workspace */}
               <Link
                 href="/"
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl bg-white border-0 outline-none ring-0 transition-all text-xs font-semibold cursor-pointer group ${pathname === "/"
-                  ? "text-primary font-bold"
-                  : "text-foreground hover:bg-muted/30"
+                className={`group flex min-h-12 items-center justify-between rounded-xl border px-3 transition-colors cursor-pointer ${pathname === "/"
+                  ? "border-primary/20 bg-primary/10 text-primary"
+                  : "border-border/70 bg-card/50 text-foreground hover:bg-accent"
                   }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="size-7 flex items-center justify-center shrink-0">
-                    <PdfDocumentIcon className="size-5 shrink-0" />
+                <div className="flex items-center gap-2.5 text-sm font-semibold">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
+                    <PdfDocumentIcon className="size-4 shrink-0" />
                   </div>
                   <span>Edit PDF & Word (Workspace)</span>
                 </div>
-                <ChevronRight className="size-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </Link>
 
-              {/* Minimal Dropdown Sections (Pages Accordion) */}
-              <div className="space-y-2 pt-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 px-1">
+              {/* Collapsed tool groups keep the drawer compact. */}
+              <div className="space-y-2 pt-2">
+                <p className="px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
                   Tools & Converters
                 </p>
 
@@ -288,28 +285,28 @@ export function SiteHeader() {
                   return (
                     <div
                       key={section.id}
-                      className={`rounded-xl transition-colors overflow-hidden border-0 outline-none ring-0 ${hasActiveChild
-                        ? "bg-muted/60"
-                        : "bg-muted/30"
+                      className={`overflow-hidden rounded-xl border transition-colors ${hasActiveChild
+                        ? "border-primary/20 bg-primary/5"
+                        : "border-border/70 bg-card/35"
                         }`}
                     >
                       {/* Accordion Dropdown Trigger */}
                       <button
                         type="button"
                         onClick={() => toggleSection(section.id)}
-                        className="w-full flex items-center justify-between px-3 py-2.5 text-left text-xs font-semibold text-foreground hover:bg-muted/60 active:bg-muted transition-colors cursor-pointer select-none border-0 outline-none focus:outline-none ring-0 focus-visible:outline-none focus-visible:ring-0"
+                        className="flex min-h-11 w-full select-none items-center justify-between px-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent/70 active:bg-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                         aria-expanded={isOpen}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {section.icon}
                           <span className="truncate">{section.title}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] font-semibold text-muted-foreground px-1.5 py-0.5 rounded-md bg-muted/80">
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                             {section.items.length}
                           </span>
                           <ChevronDown
-                            className={`size-3.5 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180 text-foreground" : ""
+                            className={`size-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180 text-foreground" : ""
                               }`}
                           />
                         </div>
@@ -317,7 +314,7 @@ export function SiteHeader() {
 
                       {/* Dropdown Items List */}
                       {isOpen && (
-                        <div className="px-2 pt-1 pb-2 bg-muted/40 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150 border-0 outline-none ring-0">
+                        <div className="space-y-0.5 border-t border-border/60 bg-background/70 px-2 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150 dark:bg-neutral-950/70">
                           {section.items.map((item) => {
                             const isActive = pathname === item.href;
                             return (
@@ -325,22 +322,15 @@ export function SiteHeader() {
                                 key={item.href}
                                 href={item.href}
                                 onClick={() => setMobileOpen(false)}
-                                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer group border-0 outline-none focus:outline-none ring-0 focus-visible:outline-none focus-visible:ring-0 ${isActive
-                                  ? "bg-primary/10 text-primary font-bold"
-                                  : "text-foreground/90 hover:bg-muted/80 hover:text-foreground"
+                                className={`group flex min-h-10 items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isActive
+                                  ? "bg-primary/10 text-primary font-semibold"
+                                  : "text-foreground/90 hover:bg-accent hover:text-accent-foreground"
                                   }`}
                               >
-                                <span className="shrink-0 group-hover:scale-105 transition-transform">
+                                <span className="shrink-0 transition-transform group-hover:scale-105">
                                   {item.icon}
                                 </span>
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-xs font-semibold">{item.title}</p>
-                                  {item.desc && (
-                                    <p className="text-[10px] text-muted-foreground truncate">
-                                      {item.desc}
-                                    </p>
-                                  )}
-                                </div>
+                                <span className="min-w-0 flex-1 truncate">{item.title}</span>
                                 {isActive && (
                                   <span className="size-1.5 rounded-full bg-primary shrink-0" />
                                 )}
@@ -355,11 +345,10 @@ export function SiteHeader() {
               </div>
             </div>
 
-            {/* Drawer Minimal Footer */}
-            <div className="p-3 border-t border-border/50 bg-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="size-2 rounded-full bg-emerald-500" />
-                <span>Fast & Secure PDF Tools</span>
+            {/* Theme control */}
+            <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2.5 bg-background dark:bg-black">
+              <div className="text-xs font-medium text-muted-foreground">
+                Appearance
               </div>
               <ThemeToggle />
             </div>
