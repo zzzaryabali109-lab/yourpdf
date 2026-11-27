@@ -10,8 +10,6 @@ const MAX_CONCURRENT_SHARE_UPLOADS = 2;
 type ShareUploadRegistry = typeof globalThis & { __clearpdfShareUploadsInProgress?: number };
 const uploadRegistry = globalThis as ShareUploadRegistry;
 
-export const runtime = "nodejs";
-
 function getPublicOrigin(request: Request): string {
   const forwardedHost = request.headers.get("x-forwarded-host");
   const hostHeader = request.headers.get("host");
