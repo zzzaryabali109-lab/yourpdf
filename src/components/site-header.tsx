@@ -30,8 +30,8 @@ import {
   ProtectPdfIcon,
   ComparePdfIcon,
   CompressPdfImageIcon,
-  FileShareDropzoneIcon,
-  PdfDocumentIcon,
+  PdfFileBadgeIcon,
+  WordFileBadgeIcon,
 } from "@/components/ui/convert-icons";
 
 interface MobileDropdownSection {
@@ -236,7 +236,10 @@ export function SiteHeader() {
                   }`}
               >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background/10">
-                  <PdfDocumentIcon className="size-5" />
+                  <span className="flex items-center gap-0.5" aria-hidden="true">
+                    <PdfFileBadgeIcon className="size-[18px] shrink-0" />
+                    <WordFileBadgeIcon className="size-[18px] shrink-0" />
+                  </span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">Edit PDF & Word</span>
@@ -253,7 +256,16 @@ export function SiteHeader() {
                   : "text-foreground hover:bg-accent"
                   }`}
               >
-                <FileShareDropzoneIcon className="size-5 shrink-0" />
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/10" aria-hidden="true">
+                  <Image
+                    src="/file-sharing-network-icon.png"
+                    alt=""
+                    width={1244}
+                    height={1238}
+                    unoptimized
+                    className="size-7 object-contain"
+                  />
+                </span>
                 <span className="flex-1 text-sm font-medium">File Share</span>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">48h</span>
                 <ChevronRight className="size-4 shrink-0 opacity-50 transition-transform group-hover:translate-x-0.5" />
