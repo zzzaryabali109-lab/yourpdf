@@ -9,9 +9,8 @@ import { NavigationMenuDemo } from "@/components/ui/demo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Menu,
-  X,
   ChevronRight,
-  ChevronDown,
+  ArrowLeft,
 } from "lucide-react";
 import {
   JpgToPdfImageIcon,
@@ -198,110 +197,157 @@ export function SiteHeader() {
           />
 
           {/* Side Drawer Panel with fast slide-in animation from LEFT */}
+          {/* Side Drawer Panel with fast slide-in animation from LEFT */}
           <aside
-            className="fixed inset-y-0 left-0 z-[10000] flex h-dvh max-h-dvh w-[min(320px,88vw)] flex-col rounded-r-2xl border-r border-border bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground shadow-2xl animate-in slide-in-from-left duration-200 ease-out dark:border-white/10 dark:bg-black"
+            className="fixed inset-y-0 left-0 z-[10000] flex h-dvh max-h-dvh w-[min(345px,90vw)] flex-col rounded-r-[32px] border-r border-pink-100/70 dark:border-white/[0.08] shadow-[0_12px_50px_rgba(244,63,94,0.12)] animate-in slide-in-from-left duration-250 ease-out overflow-hidden bg-white dark:bg-[#121014] text-neutral-900 dark:text-neutral-100"
+            style={{
+              background:
+                "radial-gradient(circle at 85% 6%, rgba(244, 63, 94, 0.22) 0%, rgba(236, 72, 153, 0.12) 35%, rgba(253, 242, 248, 0.70) 65%, #FFFFFF 100%), #FFFFFF",
+            }}
             role="dialog"
             aria-modal="true"
             aria-label="Mobile navigation"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Drawer Header */}
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/70 px-4 bg-background dark:border-white/10 dark:bg-black">
-              <Link
-                href="/"
-                className="flex items-center transition-opacity hover:opacity-90 cursor-pointer"
-                aria-label="YourPDF home"
-                onClick={() => setMobileOpen(false)}
-              >
-                <YourPdfLogo className="h-10 w-auto max-w-[150px]" />
-              </Link>
+            {/* Drawer Top Header (Back Button on Left, Theme Toggle on Right) */}
+            <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-2">
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="flex size-9 items-center justify-center rounded-lg border border-border bg-muted/50 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground active:scale-95 cursor-pointer"
-                aria-label="Close navigation menu"
+                className="flex size-10 items-center justify-center rounded-full bg-white dark:bg-[#1C1C1E] shadow-[0_2px_10px_rgba(244,63,94,0.08)] border border-pink-100/70 dark:border-white/[0.08] text-neutral-800 dark:text-neutral-200 transition-all active:scale-95 hover:scale-105 cursor-pointer"
+                aria-label="Back"
               >
-                <X className="size-4.5" />
+                <ArrowLeft className="size-4.5" />
               </button>
+
+              <ThemeToggle />
             </div>
 
-            {/* Compact navigation */}
-            <nav className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]" aria-label="Mobile site navigation">
-              <Link
-                href="/"
-                onClick={() => setMobileOpen(false)}
-                className={`group flex min-h-[58px] items-center gap-3 rounded-xl px-3.5 transition-colors cursor-pointer ${pathname === "/"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-foreground text-background hover:opacity-90"
-                  }`}
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background/10">
-                  <span className="flex items-center gap-0.5" aria-hidden="true">
-                    <PdfFileBadgeIcon className="size-[18px] shrink-0" />
-                    <WordFileBadgeIcon className="size-[18px] shrink-0" />
-                  </span>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">Edit PDF & Word</span>
-                  <span className="mt-0.5 block text-[11px] opacity-70">Open your workspace</span>
-                </span>
-                <ChevronRight className="size-4 shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-
-              <Link
-                href="/file-share"
-                onClick={() => setMobileOpen(false)}
-                className={`group mt-2 flex min-h-11 items-center gap-3 rounded-xl px-3.5 transition-colors cursor-pointer ${pathname === "/file-share"
-                  ? "bg-pink-500/10 text-pink-600 dark:text-pink-400"
-                  : "text-foreground hover:bg-accent"
-                  }`}
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/10" aria-hidden="true">
-                  <Image
-                    src="/file-sharing-network-icon.png"
-                    alt=""
-                    width={1244}
-                    height={1238}
-                    unoptimized
-                    className="size-7 object-contain"
-                  />
-                </span>
-                <span className="flex-1 text-sm font-medium">File Share</span>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">48h</span>
-                <ChevronRight className="size-4 shrink-0 opacity-50 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-
-              <div className="mt-6 flex items-center justify-between px-1 pb-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tools</p>
+            {/* Scrollable Content Container */}
+            <nav
+              className="flex-1 overflow-y-auto overscroll-contain px-4 py-2 space-y-3.5 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
+              aria-label="Mobile site navigation"
+            >
+              {/* Brand Logo Hero Card (Replaces previous PDF Edit profile card: only clean logo displayed) */}
+              <div className="relative overflow-hidden rounded-[26px] bg-white/95 dark:bg-[#1C1C1E]/95 p-5 shadow-[0_4px_24px_rgba(244,63,94,0.06)] border border-pink-100/70 dark:border-pink-950/40 flex flex-col items-center justify-center text-center">
+                <Link
+                  href="/"
+                  className="flex items-center justify-center transition-opacity hover:opacity-90 cursor-pointer"
+                  aria-label="YourPDF home"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <YourPdfLogo className="h-11 w-auto max-w-[190px] drop-shadow-xs" />
+                </Link>
+                <p className="mt-1.5 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                  Free Online PDF Tools & Workspace
+                </p>
               </div>
 
-              <div className="divide-y divide-border/70 border-y border-border/70 dark:divide-white/10 dark:border-white/10">
+              {/* Grouped Floating White Card 1: Features (File Share & Edit PDF replacing Appearance) */}
+              <div className="overflow-hidden rounded-[24px] bg-white dark:bg-[#1C1C1E] p-1.5 shadow-[0_4px_20px_rgba(244,63,94,0.04)] border border-pink-100/60 dark:border-white/[0.06] divide-y divide-pink-50/80 dark:divide-white/5">
+                {/* File Share Row */}
+                <Link
+                  href="/file-share"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center justify-between p-3.5 rounded-[18px] transition-colors cursor-pointer group ${
+                    pathname === "/file-share"
+                      ? "bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold"
+                      : "text-neutral-800 dark:text-neutral-200 hover:bg-pink-50/50 dark:hover:bg-neutral-800/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pink-500/10 dark:bg-pink-950/40">
+                      <Image
+                        src="/file-sharing-network-icon.png"
+                        alt=""
+                        width={1244}
+                        height={1238}
+                        unoptimized
+                        className="size-5.5 object-contain"
+                      />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-semibold truncate">File Share</p>
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">Instant 48h share link</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="rounded-full bg-pink-100/80 dark:bg-pink-900/40 px-2 py-0.5 text-[10px] font-bold text-pink-600 dark:text-pink-300">
+                      48h
+                    </span>
+                    <ChevronRight className="size-4 text-neutral-400 dark:text-neutral-500 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+
+                {/* Edit PDF Row (Replaces Appearance) */}
+                <Link
+                  href="/"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center justify-between p-3.5 rounded-[18px] transition-colors cursor-pointer group ${
+                    pathname === "/"
+                      ? "bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold"
+                      : "text-neutral-800 dark:text-neutral-200 hover:bg-pink-50/50 dark:hover:bg-neutral-800/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pink-500/10 dark:bg-pink-950/40">
+                      <span className="flex items-center gap-0.5" aria-hidden="true">
+                        <PdfFileBadgeIcon className="size-[18px] shrink-0 drop-shadow-xs" />
+                        <WordFileBadgeIcon className="size-[18px] shrink-0 drop-shadow-xs" />
+                      </span>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-semibold truncate">Edit PDF & Word</p>
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">Document workspace</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="rounded-full bg-pink-100/80 dark:bg-pink-900/40 px-2 py-0.5 text-[10px] font-bold text-pink-600 dark:text-pink-300">
+                      Free
+                    </span>
+                    <ChevronRight className="size-4 text-neutral-400 dark:text-neutral-500 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </Link>
+              </div>
+
+              {/* Grouped Floating White Card 2: Tools & Converters (Accordion Groups) */}
+              <div className="overflow-hidden rounded-[24px] bg-white dark:bg-[#1C1C1E] p-1.5 shadow-[0_4px_20px_rgba(244,63,94,0.04)] border border-pink-100/60 dark:border-white/[0.06] divide-y divide-pink-50/80 dark:divide-white/5">
                 {mobileSections.map((section) => {
                   const isOpen = !!openSections[section.id];
                   const hasActiveChild = section.items.some((item) => item.href === pathname);
 
                   return (
-                    <section key={section.id}>
+                    <div key={section.id}>
                       <button
                         type="button"
                         onClick={() => toggleSection(section.id)}
-                        className={`flex min-h-12 w-full select-none items-center gap-3 px-1 text-left transition-colors hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${hasActiveChild ? "text-pink-600 dark:text-pink-400" : "text-foreground/85"}`}
+                        className={`flex w-full items-center justify-between p-3.5 text-left rounded-[18px] transition-colors cursor-pointer select-none hover:bg-pink-50/50 dark:hover:bg-neutral-800/50 ${
+                          hasActiveChild ? "text-pink-600 dark:text-pink-400 font-semibold" : "text-neutral-800 dark:text-neutral-200"
+                        }`}
                         aria-expanded={isOpen}
-                        aria-controls={`mobile-section-${section.id}`}
                       >
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/70">
-                          {section.icon}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{section.title}</span>
-                        <span className="text-[10px] tabular-nums text-muted-foreground">{section.items.length}</span>
-                          <ChevronDown
-                            className={`size-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180 text-foreground" : ""
-                              }`}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pink-50/70 dark:bg-neutral-800">
+                            {section.icon}
+                          </span>
+                          <span className="text-[13.5px] font-semibold truncate">
+                            {section.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="rounded-full bg-pink-100/80 dark:bg-pink-950/60 px-2 py-0.5 text-[10px] font-bold text-pink-600 dark:text-pink-400">
+                            {section.items.length}
+                          </span>
+                          <ChevronRight
+                            className={`size-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-200 ${
+                              isOpen ? "rotate-90 text-pink-600 dark:text-pink-400" : ""
+                            }`}
                           />
+                        </div>
                       </button>
 
                       {isOpen && (
-                        <div id={`mobile-section-${section.id}`} className="mb-2 ml-4 space-y-0.5 border-l border-border pl-4 animate-in fade-in slide-in-from-top-1 duration-150 dark:border-white/10">
+                        <div className="px-2 pb-2.5 pt-1 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
                           {section.items.map((item) => {
                             const isActive = pathname === item.href;
                             return (
@@ -309,34 +355,33 @@ export function SiteHeader() {
                                 key={item.href}
                                 href={item.href}
                                 onClick={() => setMobileOpen(false)}
-                                className={`group flex min-h-10 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isActive
-                                  ? "bg-pink-500/10 font-semibold text-pink-600 dark:text-pink-400"
-                                  : "text-foreground/75 hover:bg-accent hover:text-foreground"
-                                  }`}
+                                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
+                                  isActive
+                                    ? "bg-pink-500/10 text-pink-600 dark:text-pink-400 font-bold"
+                                    : "text-neutral-700 dark:text-neutral-300 hover:bg-pink-50/60 dark:hover:bg-neutral-800/60"
+                                }`}
                               >
-                                <span className="flex size-6 shrink-0 items-center justify-center transition-transform group-hover:scale-105">
-                                  {item.icon}
-                                </span>
-                                <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                                {isActive && (
-                                  <span className="size-1.5 shrink-0 rounded-full bg-pink-500" />
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="flex size-6 shrink-0 items-center justify-center group-hover:scale-110 transition-transform">
+                                    {item.icon}
+                                  </span>
+                                  <span className="truncate">{item.title}</span>
+                                </div>
+                                {isActive ? (
+                                  <span className="size-2 rounded-full bg-pink-500 shrink-0" />
+                                ) : (
+                                  <ChevronRight className="size-3.5 text-neutral-300 dark:text-neutral-600 group-hover:translate-x-0.5 transition-transform" />
                                 )}
                               </Link>
                             );
                           })}
                         </div>
                       )}
-                    </section>
+                    </div>
                   );
                 })}
               </div>
             </nav>
-
-            {/* Theme control */}
-            <div className="flex shrink-0 items-center justify-between border-t border-border/70 px-4 py-2 bg-background dark:border-white/10 dark:bg-black">
-              <div className="text-xs font-medium text-muted-foreground">Appearance</div>
-              <ThemeToggle />
-            </div>
           </aside>
         </div>,
         document.body
