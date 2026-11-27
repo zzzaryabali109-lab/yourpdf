@@ -12,10 +12,6 @@ import {
   X,
   ChevronRight,
   ChevronDown,
-  ShieldCheck,
-  FolderDown,
-  FolderUp,
-  SlidersHorizontal,
 } from "lucide-react";
 import {
   JpgToPdfImageIcon,
@@ -53,7 +49,7 @@ const mobileSections: MobileDropdownSection[] = [
   {
     id: "convertToPdf",
     title: "Convert to PDF",
-    icon: <FolderDown className="size-4 shrink-0 text-muted-foreground" />,
+    icon: <JpgToPdfImageIcon className="size-6 shrink-0 object-contain" />,
     items: [
       { title: "JPG to PDF", href: "/jpg-to-pdf", icon: <JpgToPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "WORD to PDF", href: "/word-to-pdf", icon: <WordToPdfImageIcon className="size-4 shrink-0 object-contain" /> },
@@ -65,7 +61,7 @@ const mobileSections: MobileDropdownSection[] = [
   {
     id: "convertFromPdf",
     title: "Convert from PDF",
-    icon: <FolderUp className="size-4 shrink-0 text-muted-foreground" />,
+    icon: <PdfToJpgIcon className="size-6 shrink-0 object-contain" />,
     items: [
       { title: "PDF to JPG", href: "/pdf-to-jpg", icon: <PdfToJpgIcon className="w-7 h-4 shrink-0 object-contain" /> },
       { title: "PDF to WORD", href: "/pdf-to-word", icon: <PdfToWordIcon className="size-4 shrink-0" /> },
@@ -76,7 +72,7 @@ const mobileSections: MobileDropdownSection[] = [
   {
     id: "pdfTools",
     title: "PDF Tools & Optimization",
-    icon: <SlidersHorizontal className="size-4 shrink-0 text-muted-foreground" />,
+    icon: <CompressPdfImageIcon className="size-6 shrink-0 object-contain" />,
     items: [
       { title: "Compress PDF", href: "/compress-pdf", icon: <CompressPdfImageIcon className="size-5 shrink-0 object-contain" /> },
       { title: "Merge PDF", href: "/merge-pdf", icon: <MergePdfImageIcon className="size-5 shrink-0 object-contain" /> },
@@ -87,7 +83,7 @@ const mobileSections: MobileDropdownSection[] = [
   {
     id: "pdfSecurity",
     title: "PDF Security",
-    icon: <ShieldCheck className="size-4 shrink-0 text-muted-foreground" />,
+    icon: <ProtectPdfIcon className="size-6 shrink-0 object-contain" />,
     items: [
       { title: "Unlock PDF", href: "/unlock-pdf", icon: <UnlockPdfIcon className="size-4 shrink-0" /> },
       { title: "Protect PDF", href: "/protect-pdf", icon: <ProtectPdfIcon className="size-4 shrink-0" /> },
