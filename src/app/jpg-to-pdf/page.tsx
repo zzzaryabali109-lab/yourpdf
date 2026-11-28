@@ -8,6 +8,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { JpgToPdfImageIcon, PdfDocumentImageIcon } from "@/components/ui/convert-icons";
 import { CheckCircle2, Download, Layers, Pencil, X, Share2, Copy, Check, ExternalLink } from "lucide-react";
 import styles from "../home.module.css";
@@ -335,6 +336,8 @@ export default function JpgToPdfPage() {
           )}
         </div>
       </main>
+
+      <SiteFooter />
 
       {/* Result & Share Dialog Modal Popup */}
       <Dialog

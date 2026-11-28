@@ -1,6 +1,5 @@
 "use client";
 
-import { fetchWithTimeout as fetch } from "@/lib/client-fetch";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Download, Layers, RotateCcw, Scissors, Share2, Trash2, X } from "lucide-react";
 import ActionButton from "@/components/arc/action-button/action-button";
@@ -9,7 +8,8 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
-import { PdfFileBadgeIcon, SplitPdfImageIcon } from "@/components/ui/convert-icons";
+import { SiteFooter } from "@/components/site-footer";
+import { PdfFileBadgeIcon, SplitDropzoneIcon } from "@/components/ui/convert-icons";
 import { ShareModalView } from "@/components/ui/share-modal-view";
 import styles from "../home.module.css";
 
@@ -259,7 +259,7 @@ export default function SplitPdfPage() {
                   multiple={false}
                   maxFiles={1}
                   maxSize={MAX_PDF_SIZE}
-                  icon={<SplitPdfImageIcon className="w-16 h-16 object-contain sm:w-20 sm:h-20" />}
+                  icon={<SplitDropzoneIcon className="w-16 h-16 sm:w-20 sm:h-20" />}
                   label="Drop your PDF file here to split or remove pages"
                   description="or click to browse a file from your device to separate or remove pages"
                   note="PDF only · Up to 100 MB · Split & Remove Pages"
@@ -313,33 +313,30 @@ export default function SplitPdfPage() {
                     <button
                       type="button"
                       onClick={() => setSplitMode("all")}
-                      className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
-                        splitMode === "all"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${splitMode === "all"
+                        ? "bg-background text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       All Pages
                     </button>
                     <button
                       type="button"
                       onClick={() => setSplitMode("range")}
-                      className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
-                        splitMode === "range"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${splitMode === "range"
+                        ? "bg-background text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       Page Range
                     </button>
                     <button
                       type="button"
                       onClick={() => setSplitMode("custom")}
-                      className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${
-                        splitMode === "custom"
-                          ? "bg-background text-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
+                      className={`py-1.5 px-2 rounded-lg transition-all cursor-pointer ${splitMode === "custom"
+                        ? "bg-background text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                        }`}
                     >
                       Custom
                     </button>
@@ -596,6 +593,8 @@ export default function SplitPdfPage() {
           </DialogContent>
         </Dialog>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

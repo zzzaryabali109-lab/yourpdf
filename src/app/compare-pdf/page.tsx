@@ -5,6 +5,7 @@ import Button from "@/components/arc/button/button";
 import FileDropzone from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { CompareDropzoneIcon } from "@/components/ui/convert-icons";
 import { CompareViewer } from "@/components/compare/compare-viewer";
 import { ArrowRight, FileText } from "lucide-react";
@@ -205,6 +206,8 @@ export default function ComparePdfPage() {
           <CompareViewer file1={file1!} file2={file2!} onReset={handleReset} />
         )}
       </main>
+
+      <SiteFooter />
     </div>
   );
 }

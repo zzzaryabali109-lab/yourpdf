@@ -50,8 +50,8 @@ const mobileSections: MobileDropdownSection[] = [
     title: "Convert to PDF",
     icon: <JpgToPdfImageIcon className="size-6 shrink-0 object-contain" />,
     items: [
-      { title: "JPG to PDF", href: "/jpg-to-pdf", icon: <JpgToPdfImageIcon className="size-5 shrink-0 object-contain" /> },
-      { title: "WORD to PDF", href: "/word-to-pdf", icon: <WordToPdfImageIcon className="size-4 shrink-0 object-contain" /> },
+      { title: "JPG to PDF", href: "/jpg-to-pdf", icon: <JpgToPdfImageIcon className="w-7 h-4 shrink-0 object-contain" /> },
+      { title: "WORD to PDF", href: "/word-to-pdf", icon: <WordToPdfImageIcon className="w-7 h-4 shrink-0 object-contain" /> },
       { title: "POWERPOINT to PDF", href: "/powerpoint-to-pdf", icon: <PowerpointToPdfIcon className="w-7 h-4 shrink-0 object-contain" /> },
       { title: "EXCEL to PDF", href: "/excel-to-pdf", icon: <ExcelToPdfIcon className="w-7 h-4 shrink-0 object-contain" /> },
       { title: "HTML to PDF", href: "/html-to-pdf", icon: <HtmlToPdfIcon className="w-7 h-4 shrink-0 object-contain" /> },
@@ -63,9 +63,9 @@ const mobileSections: MobileDropdownSection[] = [
     icon: <PdfToJpgIcon className="size-6 shrink-0 object-contain" />,
     items: [
       { title: "PDF to JPG", href: "/pdf-to-jpg", icon: <PdfToJpgIcon className="w-7 h-4 shrink-0 object-contain" /> },
-      { title: "PDF to WORD", href: "/pdf-to-word", icon: <PdfToWordIcon className="size-4 shrink-0" /> },
-      { title: "PDF to POWERPOINT", href: "/pdf-to-powerpoint", icon: <PdfToPowerpointIcon className="size-4 shrink-0" /> },
-      { title: "PDF to EXCEL", href: "/pdf-to-excel", icon: <PdfToExcelIcon className="size-4 shrink-0" /> },
+      { title: "PDF to WORD", href: "/pdf-to-word", icon: <PdfToWordIcon className="w-7 h-4 shrink-0 object-contain" /> },
+      { title: "PDF to POWERPOINT", href: "/pdf-to-powerpoint", icon: <PdfToPowerpointIcon className="w-7 h-4 shrink-0 object-contain" /> },
+      { title: "PDF to EXCEL", href: "/pdf-to-excel", icon: <PdfToExcelIcon className="w-7 h-4 shrink-0 object-contain" /> },
     ],
   },
   {
@@ -189,35 +189,30 @@ export function SiteHeader() {
       {/* Mobile Side Drawer & Backdrop Overlay rendered via Portal to document.body */}
       {mobileOpen && typeof document !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[9999] md:hidden">
-          {/* Backdrop with quick fade animation */}
+          {/* Backdrop: flat translucent scrim without blur for instant 60fps mobile compositing */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/40 animate-in fade-in duration-150"
             onClick={() => setMobileOpen(false)}
             aria-hidden="true"
           />
 
-          {/* Side Drawer Panel with fast slide-in animation from LEFT */}
-          {/* Side Drawer Panel with fast slide-in animation from LEFT */}
+          {/* Side Drawer Panel: pure white minimal surface with fast GPU slide-in */}
           <aside
-            className="fixed inset-y-0 left-0 z-[10000] flex h-dvh max-h-dvh w-[min(345px,90vw)] flex-col rounded-r-[32px] border-r border-pink-100/70 dark:border-white/[0.08] shadow-[0_12px_50px_rgba(244,63,94,0.12)] animate-in slide-in-from-left duration-250 ease-out overflow-hidden bg-white dark:bg-[#121014] text-neutral-900 dark:text-neutral-100"
-            style={{
-              background:
-                "radial-gradient(circle at 85% 6%, rgba(244, 63, 94, 0.22) 0%, rgba(236, 72, 153, 0.12) 35%, rgba(253, 242, 248, 0.70) 65%, #FFFFFF 100%), #FFFFFF",
-            }}
+            className="fixed inset-y-0 left-0 z-[10000] flex h-dvh max-h-dvh w-[min(320px,86vw)] flex-col rounded-r-3xl border-r border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 shadow-xl will-change-transform animate-in slide-in-from-left duration-150 ease-out overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Mobile navigation"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Top Header (Back Button on Left, Theme Toggle on Right) */}
-            <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-2">
+            <div className="flex shrink-0 items-center justify-between px-4 pt-4 pb-2">
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="flex size-10 items-center justify-center rounded-full bg-white dark:bg-[#1C1C1E] shadow-[0_2px_10px_rgba(244,63,94,0.08)] border border-pink-100/70 dark:border-white/[0.08] text-neutral-800 dark:text-neutral-200 transition-all active:scale-95 hover:scale-105 cursor-pointer"
+                className="flex size-9 items-center justify-center rounded-full bg-neutral-100/80 hover:bg-neutral-200/70 dark:bg-neutral-900 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors active:scale-95 cursor-pointer touch-manipulation"
                 aria-label="Back"
               >
-                <ArrowLeft className="size-4.5" />
+                <ArrowLeft className="size-4" />
               </button>
 
               <ThemeToggle />
@@ -225,38 +220,38 @@ export function SiteHeader() {
 
             {/* Scrollable Content Container */}
             <nav
-              className="flex-1 overflow-y-auto overscroll-contain px-4 py-2 space-y-3.5 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
+              className="flex-1 overflow-y-auto overscroll-contain px-3.5 py-2 space-y-3 [scrollbar-width:none] [-webkit-overflow-scrolling:touch]"
               aria-label="Mobile site navigation"
             >
-              {/* Brand Logo Hero Card (Replaces previous PDF Edit profile card: only clean logo displayed) */}
-              <div className="relative overflow-hidden rounded-[26px] bg-white/95 dark:bg-[#1C1C1E]/95 p-5 shadow-[0_4px_24px_rgba(244,63,94,0.06)] border border-pink-100/70 dark:border-pink-950/40 flex flex-col items-center justify-center text-center">
+              {/* Brand Logo Hero */}
+              <div className="rounded-2xl bg-white dark:bg-neutral-950 px-4 py-3 flex flex-col items-center justify-center text-center">
                 <Link
                   href="/"
-                  className="flex items-center justify-center transition-opacity hover:opacity-90 cursor-pointer"
+                  className="flex items-center justify-center transition-opacity hover:opacity-85 cursor-pointer touch-manipulation"
                   aria-label="YourPDF home"
                   onClick={() => setMobileOpen(false)}
                 >
-                  <YourPdfLogo className="h-11 w-auto max-w-[190px] drop-shadow-xs" />
+                  <YourPdfLogo className="h-9 w-auto max-w-[170px]" />
                 </Link>
-                <p className="mt-1.5 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                <p className="mt-1 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
                   Free Online PDF Tools & Workspace
                 </p>
               </div>
 
-              {/* Grouped Floating White Card 1: Features (File Share & Edit PDF replacing Appearance) */}
-              <div className="overflow-hidden rounded-[24px] bg-white dark:bg-[#1C1C1E] p-1.5 shadow-[0_4px_20px_rgba(244,63,94,0.04)] border border-pink-100/60 dark:border-white/[0.06] divide-y divide-pink-50/80 dark:divide-white/5">
+              {/* Quick Actions: File Share & Edit PDF */}
+              <div className="rounded-2xl bg-white dark:bg-neutral-950 space-y-0.5">
                 {/* File Share Row */}
                 <Link
                   href="/file-share"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-between p-3.5 rounded-[18px] transition-colors cursor-pointer group ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer touch-manipulation ${
                     pathname === "/file-share"
-                      ? "bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold"
-                      : "text-neutral-800 dark:text-neutral-200 hover:bg-pink-50/50 dark:hover:bg-neutral-800/50"
+                      ? "bg-neutral-100 dark:bg-neutral-900 text-neutral-950 dark:text-white font-semibold"
+                      : "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-900/60"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pink-500/10 dark:bg-pink-950/40">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-50 dark:bg-neutral-900">
                       <Image
                         src="/file-sharing-network-icon.png"
                         alt=""
@@ -267,51 +262,53 @@ export function SiteHeader() {
                       />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[13.5px] font-semibold truncate">File Share</p>
+                      <p className="text-[13px] font-semibold truncate">File Share</p>
                       <p className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">Instant 48h share link</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="rounded-full bg-pink-100/80 dark:bg-pink-900/40 px-2 py-0.5 text-[10px] font-bold text-pink-600 dark:text-pink-300">
+                    <span className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
                       48h
                     </span>
-                    <ChevronRight className="size-4 text-neutral-400 dark:text-neutral-500 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="size-4 text-neutral-300 dark:text-neutral-600" />
                   </div>
                 </Link>
 
-                {/* Edit PDF Row (Replaces Appearance) */}
+                {/* Edit PDF Row */}
                 <Link
                   href="/"
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-between p-3.5 rounded-[18px] transition-colors cursor-pointer group ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors cursor-pointer touch-manipulation ${
                     pathname === "/"
-                      ? "bg-pink-500/10 text-pink-600 dark:text-pink-400 font-semibold"
-                      : "text-neutral-800 dark:text-neutral-200 hover:bg-pink-50/50 dark:hover:bg-neutral-800/50"
+                      ? "bg-neutral-100 dark:bg-neutral-900 text-neutral-950 dark:text-white font-semibold"
+                      : "text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-900/60"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pink-500/10 dark:bg-pink-950/40">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-50 dark:bg-neutral-900">
                       <span className="flex items-center gap-0.5" aria-hidden="true">
-                        <PdfFileBadgeIcon className="size-[18px] shrink-0 drop-shadow-xs" />
-                        <WordFileBadgeIcon className="size-[18px] shrink-0 drop-shadow-xs" />
+                        <PdfFileBadgeIcon className="size-[17px] shrink-0" />
+                        <WordFileBadgeIcon className="size-[17px] shrink-0" />
                       </span>
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[13.5px] font-semibold truncate">Edit PDF & Word</p>
+                      <p className="text-[13px] font-semibold truncate">Edit PDF & Word</p>
                       <p className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">Document workspace</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="rounded-full bg-pink-100/80 dark:bg-pink-900/40 px-2 py-0.5 text-[10px] font-bold text-pink-600 dark:text-pink-300">
+                    <span className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
                       Free
                     </span>
-                    <ChevronRight className="size-4 text-neutral-400 dark:text-neutral-500 group-hover:translate-x-0.5 transition-transform" />
+                    <ChevronRight className="size-4 text-neutral-300 dark:text-neutral-600" />
                   </div>
                 </Link>
               </div>
 
-              {/* Grouped Floating White Card 2: Tools & Converters (Accordion Groups) */}
-              <div className="overflow-hidden rounded-[24px] bg-white dark:bg-[#1C1C1E] p-1.5 shadow-[0_4px_20px_rgba(244,63,94,0.04)] border border-pink-100/60 dark:border-white/[0.06] divide-y divide-pink-50/80 dark:divide-white/5">
+              <div className="mx-3 h-px bg-neutral-100 dark:bg-neutral-800/70" />
+
+              {/* Tools & Converters Accordion */}
+              <div className="rounded-2xl bg-white dark:bg-neutral-950 space-y-0.5">
                 {mobileSections.map((section) => {
                   const isOpen = !!openSections[section.id];
                   const hasActiveChild = section.items.some((item) => item.href === pathname);
@@ -321,33 +318,33 @@ export function SiteHeader() {
                       <button
                         type="button"
                         onClick={() => toggleSection(section.id)}
-                        className={`flex w-full items-center justify-between p-3.5 text-left rounded-[18px] transition-colors cursor-pointer select-none hover:bg-pink-50/50 dark:hover:bg-neutral-800/50 ${
-                          hasActiveChild ? "text-pink-600 dark:text-pink-400 font-semibold" : "text-neutral-800 dark:text-neutral-200"
+                        className={`flex w-full items-center justify-between px-3 py-2.5 text-left rounded-xl transition-colors cursor-pointer select-none touch-manipulation hover:bg-neutral-50 dark:hover:bg-neutral-900/60 ${
+                          hasActiveChild ? "text-neutral-950 dark:text-white font-semibold" : "text-neutral-800 dark:text-neutral-200"
                         }`}
                         aria-expanded={isOpen}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pink-50/70 dark:bg-neutral-800">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-50 dark:bg-neutral-900">
                             {section.icon}
                           </span>
-                          <span className="text-[13.5px] font-semibold truncate">
+                          <span className="text-[13px] font-semibold truncate">
                             {section.title}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="rounded-full bg-pink-100/80 dark:bg-pink-950/60 px-2 py-0.5 text-[10px] font-bold text-pink-600 dark:text-pink-400">
+                          <span className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 tabular-nums">
                             {section.items.length}
                           </span>
                           <ChevronRight
-                            className={`size-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-200 ${
-                              isOpen ? "rotate-90 text-pink-600 dark:text-pink-400" : ""
+                            className={`size-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-150 ${
+                              isOpen ? "rotate-90 text-neutral-700 dark:text-neutral-300" : ""
                             }`}
                           />
                         </div>
                       </button>
 
                       {isOpen && (
-                        <div className="px-2 pb-2.5 pt-1 space-y-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <div className="pl-3 pr-1 pb-1.5 pt-0.5 space-y-0.5">
                           {section.items.map((item) => {
                             const isActive = pathname === item.href;
                             return (
@@ -355,22 +352,22 @@ export function SiteHeader() {
                                 key={item.href}
                                 href={item.href}
                                 onClick={() => setMobileOpen(false)}
-                                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
+                                className={`flex items-center justify-between px-3 py-2 rounded-xl text-[12.5px] font-medium transition-colors cursor-pointer touch-manipulation ${
                                   isActive
-                                    ? "bg-pink-500/10 text-pink-600 dark:text-pink-400 font-bold"
-                                    : "text-neutral-700 dark:text-neutral-300 hover:bg-pink-50/60 dark:hover:bg-neutral-800/60"
+                                    ? "bg-neutral-100 dark:bg-neutral-900 text-neutral-950 dark:text-white font-semibold"
+                                    : "text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-900/60"
                                 }`}
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="flex size-6 shrink-0 items-center justify-center group-hover:scale-110 transition-transform">
+                                  <span className="flex size-6 shrink-0 items-center justify-center">
                                     {item.icon}
                                   </span>
                                   <span className="truncate">{item.title}</span>
                                 </div>
                                 {isActive ? (
-                                  <span className="size-2 rounded-full bg-pink-500 shrink-0" />
+                                  <span className="size-1.5 rounded-full bg-neutral-900 dark:bg-white shrink-0" />
                                 ) : (
-                                  <ChevronRight className="size-3.5 text-neutral-300 dark:text-neutral-600 group-hover:translate-x-0.5 transition-transform" />
+                                  <ChevronRight className="size-3.5 text-neutral-300 dark:text-neutral-600" />
                                 )}
                               </Link>
                             );

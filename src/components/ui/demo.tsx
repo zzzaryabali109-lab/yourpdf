@@ -35,7 +35,7 @@ const convertToPdfItems = [
   {
     title: 'JPG to PDF',
     href: '/jpg-to-pdf',
-    icon: <JpgToPdfImageIcon className="size-5 shrink-0 object-contain" />,
+    icon: <JpgToPdfImageIcon className="w-8 h-5 shrink-0" />,
   },
   {
     title: 'WORD to PDF',

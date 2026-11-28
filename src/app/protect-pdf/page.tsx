@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import {
   ProtectPdfDropzoneIcon,
   PdfFileBadgeIcon,
@@ -345,6 +346,8 @@ export default function ProtectPdfPage() {
           )}
         </div>
       </main>
+
+      <SiteFooter />
 
       {/* 1. PASSWORD POPUP MODAL DIALOG */}
       <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>

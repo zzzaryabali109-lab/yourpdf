@@ -8,6 +8,8 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { EditPdfDropzoneIcon } from "@/components/ui/convert-icons";
 import { Lock, KeyRound, Eye, EyeOff, AlertCircle, Unlock, Loader2 } from "lucide-react";
 import styles from "./home.module.css";
 
@@ -153,6 +155,7 @@ export default function Home() {
           <FileDropzone
             className={styles.dropzone}
             borderless
+            icon={<EditPdfDropzoneIcon className="w-20 h-20 sm:w-24 sm:h-24" />}
             accept="application/pdf,.pdf,.docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
             multiple={false}
             maxFiles={1}
@@ -184,6 +187,8 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      <SiteFooter />
 
       {/* Password Required Modal Dialog */}
       <Dialog

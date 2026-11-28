@@ -8,6 +8,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import FileDropzone, { formatFileSize } from "@/components/arc/file-dropzone/file-dropzone";
 import type { FileDropzoneUpload } from "@/components/arc/file-dropzone/file-dropzone";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { MergePdfImageIcon, PdfFileBadgeIcon } from "@/components/ui/convert-icons";
 import { ShareModalView } from "@/components/ui/share-modal-view";
 import { CheckCircle2, Download, Layers, Pencil, Share2 } from "lucide-react";
@@ -167,6 +168,8 @@ export default function MergePdfPage() {
           )}
         </div>
       </main>
+
+      <SiteFooter />
 
       {/* Merged Result Modal Popup */}
       <Dialog
